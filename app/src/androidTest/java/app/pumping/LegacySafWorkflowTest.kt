@@ -22,7 +22,8 @@ class LegacySafWorkflowTest {
     private val instrumentation
         get() = InstrumentationRegistry.getInstrumentation()
 
-    private fun uri(name: String) = Uri.parse("content://app.pumping.test.synthetic-backup/$name")
+    private fun uri(name: String) =
+        Uri.parse("content://${instrumentation.context.packageName}.synthetic-backup/$name")
 
     private fun intercept(
         action: String,

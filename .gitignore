@@ -71,3 +71,7 @@ private-backups/
 !/app/src/androidTest/assets/legacy/synthetic_fixture.pumping
 
 # Private specifications, screenshots and development notes belong in .git/info/exclude.
+
+# Local Python release-verification bytecode.
+__pycache__/
+*.py[cod]

@@ -83,8 +83,9 @@ class ReminderWorkflowTest {
     fun actualAlarmPostsWhileForegroundAndExpandedActionsWorkInBackground() {
         seed()
         if (Build.VERSION.SDK_INT >= 33)
-            shell("pm grant app.pumping ${Manifest.permission.POST_NOTIFICATIONS}")
-        if (Build.VERSION.SDK_INT >= 31) shell("appops set app.pumping SCHEDULE_EXACT_ALARM allow")
+            shell("pm grant ${app().packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
+        if (Build.VERSION.SDK_INT >= 31)
+            shell("appops set ${app().packageName} SCHEDULE_EXACT_ALARM allow")
         assertTrue(app().reminders.canScheduleExact())
         val manager = app().getSystemService(NotificationManager::class.java)
         runBlocking { app().reminders.setPumpReminder(app(), System.currentTimeMillis() + 2500) }

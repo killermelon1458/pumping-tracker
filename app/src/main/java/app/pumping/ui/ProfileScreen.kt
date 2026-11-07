@@ -101,7 +101,7 @@ fun ProfileScreen(
         }
         item {
             Text(
-                "Pumping 1.4.0 · Offline, with no account or subscription",
+                "Pumping ${BuildConfig.VERSION_NAME} · Offline, with no account or subscription",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
