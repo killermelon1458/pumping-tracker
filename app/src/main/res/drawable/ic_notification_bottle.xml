@@ -1,0 +1,6 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Original bottle silhouette. White alpha only; no launcher-icon background. -->
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M10,2Q12,0 14,2L14,4L16,4L16,7L8,7L8,4L10,4ZM7,8L17,8Q19,8 19,10L19,21Q19,23 17,23L7,23Q5,23 5,21L5,10Q5,8 7,8ZM14,11L14,12L18,12L18,11ZM14,15L14,16L18,16L18,15ZM14,19L14,20L18,20L18,19Z" />
+</vector>

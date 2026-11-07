@@ -1,0 +1,73 @@
+# Gradle, Kotlin and Android-generated output (retain gradle/wrapper/).
+.gradle/
+.kotlin/
+**/build/
+.externalNativeBuild/
+.cxx/
+.captures/
+captures/
+
+# Local Android SDK and machine configuration.
+/local.properties
+/.android-sdk/
+
+# IDE and workstation state.
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.DS_Store
+Thumbs.db
+
+# Temporary editor, logging, crash and profiling output.
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+hs_err_pid*
+replay_pid*
+*.hprof
+*.heapdump
+*.trace
+*.perfetto-trace
+
+# Generated install packages and local test deliveries (including BUILD_INFO.md).
+*.apk
+*.aab
+*.ap_
+/test-builds/
+
+# Signing material and local credentials. Never add production keys to the repository.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.pem
+key.properties
+keystore.properties
+signing.properties
+signing.local.properties
+signing-config.local.gradle
+signing-config.local.gradle.kts
+credentials.properties
+credentials.json
+secrets.properties
+secrets.json
+/.env
+/.env.*
+!/.env.example
+!/.env.sample
+
+# User backups: allow only the two reviewed synthetic compatibility test fixtures.
+private-backups/
+*.pumping
+!/app/src/test/resources/legacy/synthetic_fixture.pumping
+!/app/src/androidTest/assets/legacy/synthetic_fixture.pumping
+
+# Private specifications, screenshots and development notes belong in .git/info/exclude.
