@@ -31,15 +31,21 @@ class CoreWorkflowTest {
         compose.onNodeWithTag("Track each breast separately").performClick()
         compose.onNodeWithTag("Left Breast (oz)").performTextInput("5")
         compose.onNodeWithTag("Right Breast (oz)").performTextInput("4")
-        compose.onNodeWithTag("Stash It").performScrollTo().performClick()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("Stash It").performScrollTo().performClick().assertIsOn()
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(10000) {
-            compose.onAllNodesWithText("Quick Log").fetchSemanticsNodes().isNotEmpty()
+            runBlocking { app.repository.dao.allBags().any { it.number == number && it.initial == Volume.parse("9", "oz") } } &&
+                compose.onAllNodesWithText("Quick Log").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Stash").performClick()
         compose.onNodeWithText("Use soon").assertIsDisplayed()
         compose.onNodeWithText("−").performClick()
-        compose.onNodeWithText("#$number · 9 oz · Fridge").performClick()
+        val bagLabel = "#$number · 9 oz · Fridge"
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithText(bagLabel).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(bagLabel).performClick()
         compose.onNodeWithTag("Use quantity (oz)").performTextReplacement("2")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(10000) {

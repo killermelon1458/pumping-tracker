@@ -41,6 +41,7 @@ replay_pid*
 *.aab
 *.ap_
 /test-builds/
+/dev-builds/
 
 # Signing material and local credentials. Never add production keys to the repository.
 *.jks

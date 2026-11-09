@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.Flow
 
 fun newId(): String = UUID.randomUUID().toString()
 
+enum class BreastfeedingStatus { YES, NO, UNKNOWN }
+
 @Entity(tableName = "sessions")
 data class Session(
     @PrimaryKey val id: String = newId(),
@@ -19,6 +21,8 @@ data class Session(
     val mode: String = "MANUAL",
     val created: Long = System.currentTimeMillis(),
     val updated: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "'UNKNOWN'")
+    val breastfedBefore: BreastfeedingStatus = BreastfeedingStatus.UNKNOWN,
 )
 
 @Entity(
@@ -182,7 +186,7 @@ interface PumpDao {
             LegacyPreferences::class,
             DeletionMarker::class,
         ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class PumpDatabase : RoomDatabase() {

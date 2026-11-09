@@ -487,6 +487,9 @@ class LegacyBackup(private val repo: Repository, private val settings: SettingsS
             }
             root.put("export_date", LocalDateTime.now().format(legacyTimestamp))
             val sessions = repo.dao.allSessions()
+            require(sessions.all { it.breastfedBefore == BreastfeedingStatus.UNKNOWN }) {
+                "Legacy .pumping cannot preserve Breastfed before pumping. Export complete records (JSON v2) instead."
+            }
             val bags = repo.dao.allBags()
             val moves = repo.dao.allMovements()
             require(moves.all { it.kind == "ADD" }) {

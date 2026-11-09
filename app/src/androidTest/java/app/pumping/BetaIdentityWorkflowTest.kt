@@ -35,10 +35,12 @@ class BetaIdentityWorkflowTest {
     @Test
     fun permanentIdUsesExistingNamespaceAndRegisteredComponents() {
         val app = app()
-        assertEquals("dev.killermelon1458.pumping", app.packageName)
+        assertEquals("dev.killermelon1458.pumping.debug", app.packageName)
         assertEquals(app.packageName, BuildConfig.APPLICATION_ID)
-        assertEquals("1.4.0-beta.1", BuildConfig.VERSION_NAME)
-        assertEquals(7, BuildConfig.VERSION_CODE)
+        assertEquals("1.4.2-dev", BuildConfig.VERSION_NAME)
+        assertEquals(9, BuildConfig.VERSION_CODE)
+        assertEquals("Pumping Dev", app.getString(R.string.app_name))
+        assertTrue(BuildConfig.DEBUG)
         assertEquals("app.pumping", MainActivity::class.java.`package`!!.name)
         val pm = app.packageManager
         val info = pm.getApplicationInfo(app.packageName, 0)
@@ -58,6 +60,14 @@ class BetaIdentityWorkflowTest {
                 .channelSettingsIntent()
                 .getStringExtra(android.provider.Settings.EXTRA_APP_PACKAGE),
         )
+    }
+
+    @Test
+    fun profileDisplaysDevelopmentVersion() {
+        compose.onNodeWithText("Profile").performClick()
+        val version = "Pumping ${BuildConfig.VERSION_NAME} · Offline, with no account or subscription"
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(version))
+        compose.onNodeWithText(version).assertIsDisplayed()
     }
 
     @Test
@@ -106,7 +116,7 @@ class BetaIdentityWorkflowTest {
             )
         fun database() =
             Room.databaseBuilder(app, PumpDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
         var db = database()
         val other = Room.inMemoryDatabaseBuilder(app, PumpDatabase::class.java).build()

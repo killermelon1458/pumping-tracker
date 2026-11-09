@@ -10,7 +10,7 @@ import prepare_beta_release as release
 
 class ReleaseVerificationTests(unittest.TestCase):
     def badging(self):
-        return (f"package: name='{release.APP_ID}' versionCode='7' versionName='{release.VERSION_NAME}' compileSdkVersion='37'\n"
+        return (f"package: name='{release.APP_ID}' versionCode='{release.VERSION_CODE}' versionName='{release.VERSION_NAME}' compileSdkVersion='37'\n"
                 "minSdkVersion:'26'\ntargetSdkVersion:'36'\n")
     def manifest(self):
         return '\n'.join(release.COMPONENTS)
@@ -23,7 +23,7 @@ class ReleaseVerificationTests(unittest.TestCase):
         with self.assertRaises(release.VerificationError):
             release.verify_identity(self.badging(), self.manifest() + '\nandroid:testOnly(0x01010272)=(type 0x12)0xffffffff')
     def test_old_development_id_or_version_is_rejected(self):
-        for text in [self.badging().replace(release.APP_ID, 'app.pumping'), self.badging().replace("versionCode='7'", "versionCode='6'"), self.badging().replace(release.VERSION_NAME, '1.4.0')]:
+        for text in [self.badging().replace(release.APP_ID, 'app.pumping'), self.badging().replace(release.APP_ID, release.APP_ID + '.debug'), self.badging().replace(f"versionCode='{release.VERSION_CODE}'", "versionCode='7'"), self.badging().replace(release.VERSION_NAME, '1.4.0')]:
             with self.subTest(text=text), self.assertRaises(release.VerificationError):
                 release.verify_identity(text, self.manifest())
     def test_incompatible_sdk_or_component_is_rejected(self):

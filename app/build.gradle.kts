@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
@@ -57,8 +58,8 @@ android {
         applicationId = "dev.killermelon1458.pumping"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.4.0-beta.1"
+        versionCode = providers.gradleProperty("pumpingVersionCode").get().toInt()
+        versionName = providers.gradleProperty("pumpingVersion").get()
         testInstrumentationRunner = "app.pumping.SyntheticTestRunner"
     }
     signingConfigs {
@@ -70,7 +71,14 @@ android {
         }
     }
     buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-dev"
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+        }
         getByName("release") {
+            versionNameSuffix = "-beta"
             isDebuggable = false
             isJniDebuggable = false
             isMinifyEnabled = false
@@ -123,5 +131,52 @@ tasks.configureEach {
     if (name in setOf("validateSigningRelease", "packageRelease", "packageReleaseBundle",
             "signReleaseBundle", "assembleRelease", "bundleRelease", "installRelease")) {
         dependsOn(validateReleaseCredentials)
+    }
+}
+
+// Staging is part of assemble, and consumes AGP's completed APK artifact (not a guessed path).
+androidComponents.onVariants { variant ->
+    val capitalized = variant.name.replaceFirstChar { it.uppercase() }
+    val apkDirectory = variant.artifacts.get(SingleArtifact.APK)
+    val loader = variant.artifacts.getBuiltArtifactsLoader()
+    val output = variant.outputs.single()
+    val versionName = output.versionName
+    val versionCode = output.versionCode
+    val applicationId = variant.applicationId
+    val sdkDirectory = androidComponents.sdkComponents.sdkDirectory
+    val stagingScript = rootProject.file("tools/stage_apk.py")
+    val channel = requireNotNull(variant.buildType)
+    val stagingDirectory = rootProject.file(if (channel == "debug") "dev-builds" else "test-builds")
+    val stage = tasks.register("stage${capitalized}Apk") {
+        group = "build"
+        description = "Verify and stage ${variant.name} as Pumping-<variant versionName>.apk"
+        notCompatibleWithConfigurationCache("Staging verifies shared local artifacts and version collisions on every invocation.")
+        inputs.dir(apkDirectory)
+        inputs.files(stagingScript, rootProject.file("tools/prepare_beta_release.py"))
+        outputs.upToDateWhen { false }
+        if (channel == "release") dependsOn(validateReleaseCredentials)
+        doLast {
+            val artifacts = loader.load(apkDirectory.get())
+                ?: throw GradleException("Cannot read completed APK output metadata for $capitalized.")
+            val apk = artifacts.elements.singleOrNull()
+                ?: throw GradleException("Expected one universal APK; split APK staging requires explicit handling.")
+            val process = ProcessBuilder(
+                "python3", stagingScript.absolutePath,
+                "--apk", apk.outputFile,
+                "--version-name", versionName.get(),
+                "--version-code", versionCode.get().toString(),
+                "--application-id", applicationId.get(),
+                "--channel", channel,
+                "--sdk", sdkDirectory.get().asFile.absolutePath,
+                "--output", stagingDirectory.absolutePath,
+            ).redirectErrorStream(true).start()
+            process.inputStream.bufferedReader().useLines { lines ->
+                lines.forEach { logger.lifecycle(it) }
+            }
+            if (process.waitFor() != 0) throw GradleException("APK verification/staging failed; see the message above.")
+        }
+    }
+    tasks.configureEach {
+        if (name == "assemble$capitalized") dependsOn(stage)
     }
 }

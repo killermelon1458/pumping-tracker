@@ -13,8 +13,11 @@ import sys
 import zipfile
 
 APP_ID = "dev.killermelon1458.pumping"
-VERSION_NAME = "1.4.0-beta.1"
-VERSION_CODE = 7
+# Read the same revision as Gradle, so promotion adds only the build-type suffix.
+VERSION_PROPERTIES = dict(re.findall(r"^(pumpingVersion(?:Code)?)=(.+)$",
+    (Path(__file__).resolve().parents[1] / "gradle.properties").read_text(), re.M))
+VERSION_NAME = VERSION_PROPERTIES["pumpingVersion"] + "-beta"
+VERSION_CODE = int(VERSION_PROPERTIES["pumpingVersionCode"])
 COMPONENTS = (
     "app.pumping.PumpingApp", "app.pumping.MainActivity",
     "app.pumping.reminders.AlarmReceiver", "app.pumping.reminders.RestoreReceiver",

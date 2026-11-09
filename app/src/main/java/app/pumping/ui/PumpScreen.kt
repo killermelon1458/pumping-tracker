@@ -140,6 +140,10 @@ fun PumpScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
+                                Text(
+                                    "Breastfed before pumping: ${row.breastfedBefore.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                                 if (row.notes.isNotEmpty()) Text(row.notes)
                             }
                             if (i < rows.lastIndex) HorizontalDivider()

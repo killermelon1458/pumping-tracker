@@ -8,7 +8,7 @@ import app.pumping.reminders.Reminders
 open class PumpingApp : Application() {
     open val db by lazy {
         Room.databaseBuilder(this, PumpDatabase::class.java, "pumping.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
     val repository by lazy { Repository(db) }

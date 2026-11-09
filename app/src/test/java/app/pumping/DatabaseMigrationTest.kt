@@ -57,7 +57,7 @@ class DatabaseMigrationTest {
         }
         val upgraded =
             Room.databaseBuilder(context, PumpDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .allowMainThreadQueries()
                 .build()
         try {
@@ -200,7 +200,7 @@ class DatabaseMigrationTest {
         }
         val upgraded =
             Room.databaseBuilder(context, PumpDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .allowMainThreadQueries()
                 .build()
         try {
@@ -233,4 +233,112 @@ class DatabaseMigrationTest {
             context.deleteDatabase(name)
         }
     }
+    @Test
+    fun schemaThreeAddsUnknownAndPreservesAllTablesAndExplicitContextAfterReopen() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "synthetic-v3-migration-${System.nanoTime()}.db"
+        val schema = JSONObject(javaClass.classLoader!!.getResourceAsStream("legacy/schema-v3.json")!!
+            .bufferedReader().use { it.readText() }).getJSONObject("database")
+        val old = context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null)
+        val tables = mutableListOf<String>()
+        try {
+            val entities=schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val e=entities.getJSONObject(i);val table=e.getString("tableName");tables+=table
+                fun sql(text:String)=text.replace("\${TABLE_NAME}",table)
+                old.execSQL(sql(e.getString("createSql")))
+                val indices=e.optJSONArray("indices")
+                if(indices!=null) for(n in 0 until indices.length()) old.execSQL(sql(indices.getJSONObject(n).getString("createSql")))
+            }
+            val setup=schema.getJSONArray("setupQueries")
+            for(i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            old.execSQL("INSERT INTO sessions VALUES ('old',1000,61000,60,10000,NULL,NULL,'Synthetic old note','MANUAL',61000,61000)")
+            old.execSQL("INSERT INTO bags VALUES ('bag',7,61000,5000,'Fridge',345661000,'Synthetic bag','old')")
+            old.execSQL("INSERT INTO movements VALUES ('add','bag',61000,'ADD',5000,'',NULL,NULL)")
+            old.execSQL("INSERT INTO movements VALUES ('use','bag',62000,'Feeding',-1000,'Synthetic use',NULL,NULL)")
+            old.execSQL("INSERT INTO legacy_records VALUES ('pump','old','{\"id\":\"old\"}','{}','UTC')")
+            old.execSQL("INSERT INTO legacy_metadata VALUES ('bag-number:8','8')")
+            old.execSQL("INSERT INTO legacy_preferences VALUES (1,'synthetic-token','{\"inputUnit\":\"mL\"}')")
+            old.execSQL("INSERT INTO deletions VALUES ('session','deleted-synthetic')")
+            old.version=3
+        } finally { old.close() }
+        fun open()=Room.databaseBuilder(context,PumpDatabase::class.java,name)
+            .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4).allowMainThreadQueries().build()
+        var upgraded=open()
+        try {
+            val dao=upgraded.dao();val s=dao.session("old")!!
+            assertEquals(BreastfeedingStatus.UNKNOWN,s.breastfedBefore)
+            assertEquals(1000L,s.start);assertEquals(61000L,s.end);assertEquals(60L,s.activeSeconds)
+            assertEquals(10000L,s.volume);assertEquals("Synthetic old note",s.notes)
+            assertEquals("old",dao.bag("bag")!!.sourceSession);assertEquals(4000L,dao.remaining("bag"))
+            assertEquals(2,dao.allMovements().size);assertEquals("Synthetic use",dao.allMovements().first().notes)
+            assertEquals("{\"id\":\"old\"}",dao.legacyRecords().single().json)
+            assertEquals("8",dao.legacyMetadata().single().json)
+            assertEquals("synthetic-token",dao.currentLegacyPreferences()!!.token)
+            assertTrue(dao.isDeleted("session","deleted-synthetic"))
+            dao.updateSession(s.copy(breastfedBefore=BreastfeedingStatus.YES))
+            upgraded.close();upgraded=open()
+            assertEquals(BreastfeedingStatus.YES,upgraded.dao().session("old")!!.breastfedBefore)
+            assertEquals(4000L,upgraded.dao().remaining("bag"))
+        } finally { upgraded.close();context.deleteDatabase(name) }
+    }
+
+    @Test
+    fun schemaThreeRetainsCompleteIosFixtureAndDeletionHistory() = runBlocking {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val name="synthetic-v3-ios-${System.nanoTime()}.db"
+        val source=Room.inMemoryDatabaseBuilder(context,PumpDatabase::class.java).allowMainThreadQueries().build()
+        val fixture=javaClass.classLoader!!.getResourceAsStream("legacy/synthetic_fixture.pumping")!!.bufferedReader().use { it.readText() }
+        try {
+            val original=Repository(source)
+            val importer=LegacyBackup(original,SettingsStore(context,original.dao))
+            importer.import(importer.prepare(fixture))
+            val removed=original.dao.allSessions().first().id
+            original.deleteSession(removed)
+            val schema=JSONObject(javaClass.classLoader!!.getResourceAsStream("legacy/schema-v3.json")!!.bufferedReader().use { it.readText() }).getJSONObject("database")
+            val old=context.openOrCreateDatabase(name,Context.MODE_PRIVATE,null)
+            try {
+                val entities=schema.getJSONArray("entities")
+                for(i in 0 until entities.length()) {
+                    val e=entities.getJSONObject(i);val table=e.getString("tableName")
+                    fun sql(text:String)=text.replace("\${TABLE_NAME}",table)
+                    old.execSQL(sql(e.getString("createSql")))
+                    val indices=e.optJSONArray("indices")
+                    if(indices!=null) for(n in 0 until indices.length()) old.execSQL(sql(indices.getJSONObject(n).getString("createSql")))
+                    source.openHelper.readableDatabase.query("SELECT * FROM $table").use { cursor ->
+                        val columns=cursor.columnNames.filter { it!="breastfedBefore" }
+                        while(cursor.moveToNext()) {
+                            val values=columns.map<String, Any?> { c ->
+                                val index=cursor.getColumnIndexOrThrow(c)
+                                when(cursor.getType(index)) {
+                                    android.database.Cursor.FIELD_TYPE_NULL -> null
+                                    android.database.Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(index)
+                                    else -> cursor.getString(index)
+                                }
+                            }.toTypedArray()
+                            old.execSQL("INSERT INTO $table (${columns.joinToString()}) VALUES (${columns.joinToString { "?" }})",values)
+                        }
+                    }
+                }
+                val setup=schema.getJSONArray("setupQueries")
+                for(i in 0 until setup.length()) old.execSQL(setup.getString(i))
+                old.version=3
+            } finally { old.close() }
+            val upgraded=Room.databaseBuilder(context,PumpDatabase::class.java,name)
+                .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4).allowMainThreadQueries().build()
+            try {
+                val r=Repository(upgraded)
+                assertEquals(original.dao.allSessions().toSet(),r.dao.allSessions().toSet())
+                assertEquals(original.dao.allBags().toSet(),r.dao.allBags().toSet())
+                assertEquals(original.dao.allMovements().toSet(),r.dao.allMovements().toSet())
+                assertEquals(original.dao.legacyRecords().toSet(),r.dao.legacyRecords().toSet())
+                assertEquals(original.dao.legacyMetadata().toSet(),r.dao.legacyMetadata().toSet())
+                assertEquals(original.dao.deletions(),r.dao.deletions())
+                LegacyBackup(r,SettingsStore(context,r.dao)).let { it.import(it.prepare(fixture)) }
+                assertNull(r.dao.session(removed))
+                assertTrue(r.dao.allSessions().all { it.breastfedBefore==BreastfeedingStatus.UNKNOWN })
+            } finally { upgraded.close() }
+        } finally { source.close();context.deleteDatabase(name) }
+    }
+
 }

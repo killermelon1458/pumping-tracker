@@ -35,6 +35,44 @@ fun SessionEditor(
     }
     var end by rememberSaveable { mutableLongStateOf(existing?.end ?: initialEnd) }
     var duration by rememberSaveable { mutableStateOf((initialSeconds / 60.0).toString()) }
+    var committedSeconds by rememberSaveable { mutableLongStateOf(initialSeconds) }
+    val linkedTiming = timer == null && existing?.mode != "TIMER"
+    var historyNames by rememberSaveable { mutableStateOf(listOf("END", "DURATION")) }
+    var durationDirty by rememberSaveable { mutableStateOf(false) }
+    var timingError by rememberSaveable { mutableStateOf<String?>(null) }
+    var futureWarning by rememberSaveable { mutableStateOf(false) }
+    fun commitTime(field: TimeField, value: Long): Boolean {
+        return try {
+            if (linkedTiming) {
+                val next = QuickLogTiming(start, end, committedSeconds,
+                    historyNames.map(TimeField::valueOf)).edit(field, value)
+                committedSeconds = next.seconds
+                start = next.start
+                end = next.end
+                duration = (next.seconds / 60.0).toString()
+                historyNames = next.history.map { it.name }
+            } else {
+                // Timed sessions retain active time independently of their paused wall-clock span.
+                when (field) {
+                    TimeField.START -> start = value
+                    TimeField.END -> end = value
+                    TimeField.DURATION -> { duration = (value / 60.0).toString(); end = start + value * 1000 }
+                }
+            }
+            if (!linkedTiming && field == TimeField.DURATION) committedSeconds = value
+            durationDirty = false
+            timingError = null
+            true
+        } catch (e: Exception) {
+            timingError = e.message ?: "Invalid session interval"
+            false
+        }
+    }
+    fun commitDuration(): Boolean {
+        if (!durationDirty) return true
+        return try { commitTime(TimeField.DURATION, durationSeconds(duration)) }
+        catch (e: Exception) { timingError = "Enter a valid positive duration"; false }
+    }
     var total by rememberSaveable {
         mutableStateOf(existing?.let { Volume.format(it.volume, inputUnit, 5) } ?: "")
     }
@@ -45,6 +83,9 @@ fun SessionEditor(
         mutableStateOf(existing?.right?.let { Volume.format(it, inputUnit, 5) } ?: "")
     }
     var split by rememberSaveable { mutableStateOf(existing?.left != null) }
+    var breastfedBefore by rememberSaveable {
+        mutableStateOf((existing?.breastfedBefore ?: BreastfeedingStatus.UNKNOWN).name)
+    }
     var notes by rememberSaveable { mutableStateOf(existing?.notes ?: "") }
     var zero by rememberSaveable { mutableStateOf(existing?.volume == 0L) }
     var stash by rememberSaveable { mutableStateOf(false) }
@@ -73,53 +114,62 @@ fun SessionEditor(
             )
         else Volume.parse(total, inputUnit)
     val output = runCatching { measured() }.getOrNull()
+    fun saveSession() {
+        vm.launch {
+            busy = true
+            try {
+                val amount = measured()
+                require(amount > 0 || zero) { "Enter output or select No milk expressed" }
+                val seconds = committedSeconds
+                val session =
+                    Session(
+                        id = draftId,
+                        start = start,
+                        end = end,
+                        activeSeconds = seconds,
+                        volume = amount,
+                        left =
+                            if (split && !zero) Volume.parse(left.ifBlank { "0" }, inputUnit)
+                            else null,
+                        right =
+                            if (split && !zero) Volume.parse(right.ifBlank { "0" }, inputUnit)
+                            else null,
+                        breastfedBefore = BreastfeedingStatus.valueOf(breastfedBefore),
+                        notes = notes,
+                        mode = existing?.mode ?: if (timer != null) "TIMER" else "MANUAL",
+                        created = existing?.created ?: System.currentTimeMillis(),
+                    )
+                val allocations =
+                    if (stash)
+                        allocationValues.mapIndexed { i, v ->
+                            Allocation(
+                                Volume.parse(v, inputUnit),
+                                allocationLocations[i],
+                                s.days(allocationLocations[i]),
+                            )
+                        }
+                    else emptyList()
+                vm.save(session, allocations, if (reminder) remindAt else null)
+                vm.app.reminders.restore(vm.app)
+                close()
+            } finally {
+                busy = false
+            }
+        }
+    }
+    fun requestSave() {
+        if (!commitDuration()) return
+        if (end <= start || committedSeconds <= 0 || committedSeconds > (end - start) / 1000) {
+            timingError = "Active duration must fit inside start and end times"
+            return
+        }
+        if (!customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+        if (end > System.currentTimeMillis()) futureWarning = true else saveSession()
+    }
     EditorLayout(
         if (existing == null) "Log Pump" else "Edit Pump",
         { discard = true },
-        {
-            vm.launch {
-                busy = true
-                try {
-                    val amount = measured()
-                    require(amount > 0 || zero) { "Enter output or select No milk expressed" }
-                    val seconds =
-                        ((duration.toDoubleOrNull() ?: error("Enter a valid duration")) * 60)
-                            .toLong()
-                    val session =
-                        Session(
-                            id = draftId,
-                            start = start,
-                            end = end,
-                            activeSeconds = seconds,
-                            volume = amount,
-                            left =
-                                if (split && !zero) Volume.parse(left.ifBlank { "0" }, inputUnit)
-                                else null,
-                            right =
-                                if (split && !zero) Volume.parse(right.ifBlank { "0" }, inputUnit)
-                                else null,
-                            notes = notes,
-                            mode = existing?.mode ?: if (timer != null) "TIMER" else "MANUAL",
-                            created = existing?.created ?: System.currentTimeMillis(),
-                        )
-                    val allocations =
-                        if (stash)
-                            allocationValues.mapIndexed { i, v ->
-                                Allocation(
-                                    Volume.parse(v, inputUnit),
-                                    allocationLocations[i],
-                                    s.days(allocationLocations[i]),
-                                )
-                            }
-                        else emptyList()
-                    vm.save(session, allocations, if (reminder) remindAt else null)
-                    vm.app.reminders.restore(vm.app)
-                    close()
-                } finally {
-                    busy = false
-                }
-            }
-        },
+        { requestSave() },
         !busy && output != null && (output > 0 || zero),
         inputUnit = inputUnit,
         unitEnabled = !busy,
@@ -151,32 +201,34 @@ fun SessionEditor(
             Field(
                 "Active duration (minutes)",
                 duration,
-                { v ->
-                    duration = v
-                    val secs = (v.toDoubleOrNull()?.times(60))?.toLong()
-                    if (secs != null && secs > 0) {
-                        end = start + secs * 1000
-                        if (!customReminder)
-                            remindAt = nextReminder(referenceAt(), s.reminderMinutes)
-                    }
-                },
+                { v -> duration = v; durationDirty = true; timingError = null },
                 true,
+                onCommit = {
+                    if (commitDuration() && !customReminder)
+                        remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                },
             )
             Timestamp("Started", start, s) {
-                start = it
-                duration = ((end - start) / 60000.0).toString()
-                if (!customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                if (commitDuration() && commitTime(TimeField.START, it) && !customReminder)
+                    remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }
             Timestamp("Ended", end, s) {
-                end = it
-                duration = ((end - start) / 60000.0).toString()
-                if (!customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                if (commitDuration() && commitTime(TimeField.END, it) && !customReminder)
+                    remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }
+            timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (timer != null)
                 Text(
                     "Active duration excludes pauses. Start and end retain the full session span.",
                     style = MaterialTheme.typography.bodySmall,
                 )
+        }
+        CardBlock {
+            Text("Breastfed before pumping", style = MaterialTheme.typography.titleMedium)
+            Choices(listOf("Yes", "No", "Unknown"),
+                BreastfeedingStatus.valueOf(breastfedBefore).name.lowercase().replaceFirstChar { it.uppercase() }) {
+                breastfedBefore = it.uppercase()
+            }
         }
         CardBlock {
             Toggle("No milk expressed", zero, { zero = it })
@@ -286,6 +338,13 @@ fun SessionEditor(
             style = MaterialTheme.typography.bodySmall,
         )
     }
+    if (futureWarning)
+        AlertDialog(
+            onDismissRequest = { futureWarning = false },
+            text = { Text("This session ends in the future. Did you mean to save it this way?") },
+            dismissButton = { TextButton({ futureWarning = false }) { Text("Review") } },
+            confirmButton = { TextButton({ futureWarning = false; saveSession() }) { Text("Save anyway") } },
+        )
     if (discard)
         Confirm(
             "Discard changes?",

@@ -5,7 +5,10 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -101,17 +104,25 @@ fun Field(
     numeric: Boolean = false,
     modifier: Modifier = Modifier,
     lines: Int = 1,
+    onCommit: (() -> Unit)? = null,
 ) {
+    var hadFocus by remember { mutableStateOf(false) }
     OutlinedTextField(
         value,
         onChange,
-        modifier.fillMaxWidth().testTag(label),
+        modifier.fillMaxWidth().testTag(label).onFocusChanged {
+            if (hadFocus && !it.isFocused) onCommit?.invoke()
+            hadFocus = it.isFocused
+        },
         label = { Text(label) },
         singleLine = lines == 1,
         minLines = lines,
         shape = RoundedCornerShape(18.dp),
         keyboardOptions =
-            KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text),
+            KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
+                imeAction = if (onCommit != null) ImeAction.Done else ImeAction.Default),
+        keyboardActions = if (onCommit == null) KeyboardActions.Default
+            else KeyboardActions(onDone = { onCommit() }),
     )
 }
 
@@ -151,11 +162,8 @@ fun Timestamp(label: String, value: Long, s: Settings, change: (Long) -> Unit) {
                                 context,
                                 { _, hour, minute ->
                                     change(
-                                        LocalDate.of(year, month + 1, day)
-                                            .atTime(hour, minute)
-                                            .atZone(ZoneId.systemDefault())
-                                            .toInstant()
-                                            .toEpochMilli()
+                                        resolveEditorTime(LocalDate.of(year, month + 1, day),
+                                            hour, minute, ZoneId.systemDefault(), z.offset)
                                     )
                                 },
                                 z.hour,

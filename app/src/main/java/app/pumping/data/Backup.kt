@@ -24,7 +24,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             repo.dao.synchronizeLegacyReservations()
             JSONObject()
                 .put("format", "Pumping")
-                .put("version", 1)
+                .put("version", 2)
                 .put("preferences_snapshot", preferences)
                 .put(
                     "deletions",
@@ -51,6 +51,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                                     .put("mode", s.mode)
                                     .put("created", s.created)
                                     .put("updated", s.updated)
+                                    .put("breastfedBefore", s.breastfedBefore.name)
                             )
                         }
                     },
@@ -148,9 +149,11 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
     suspend fun import(text: String, applyLegacySettings: Boolean = false) {
         require(text.length <= LegacyFormat.MAX_BYTES) { "Backup exceeds 20 MB." }
         val root = LegacyFormat.parseJson(text)
-        require(root.getString("format") == "Pumping" && root.getInt("version") == 1) {
+        val version = root.getInt("version")
+        require(root.getString("format") == "Pumping" && version in 1..2) {
             "Unsupported backup format"
         }
+        validateNativeBackupFields(root, version)
         fun JSONObject.nullLong(k: String) = if (isNull(k)) null else getLong(k)
         fun JSONObject.nullString(k: String) = if (isNull(k)) null else getString(k)
         fun objects(k: String): List<JSONObject> {
@@ -172,6 +175,8 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                     j.getString("mode"),
                     j.getLong("created"),
                     j.getLong("updated"),
+                    if (version == 1) BreastfeedingStatus.UNKNOWN
+                    else BreastfeedingStatus.valueOf(j.getString("breastfedBefore")),
                 )
             }
         val inputBags =

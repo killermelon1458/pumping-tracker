@@ -105,3 +105,10 @@ internal fun normalizedUnitPreferences(incoming: org.json.JSONObject): org.json.
             remove("unit")
         }
     }
+
+/** Historical records have no recorded breastfeeding context; never classify them as No. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sessions ADD COLUMN breastfedBefore TEXT NOT NULL DEFAULT 'UNKNOWN'")
+    }
+}
