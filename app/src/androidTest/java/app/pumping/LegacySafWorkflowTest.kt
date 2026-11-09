@@ -154,7 +154,7 @@ class LegacySafWorkflowTest {
             instrumentation.removeMonitor(safetyMonitor)
         }
         assertTrue(size(safety) > 0)
-        assertEquals(2, JSONObject(read(safety)).getInt("version"))
+        assertEquals(3, JSONObject(read(safety)).getInt("version"))
         assertEquals(before + 3, JSONObject(read(safety)).getJSONArray("sessions").length())
         compose.onNodeWithText("Confirm", substring = false).performClick()
         compose.waitUntil(15000) {

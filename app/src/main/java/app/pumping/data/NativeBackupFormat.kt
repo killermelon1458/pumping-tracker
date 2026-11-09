@@ -10,9 +10,10 @@ internal fun validateNativeBackupFields(root: JSONObject, version: Int) {
         }
     }
     fields(root, setOf("format", "version", "preferences_snapshot", "deletions", "sessions", "bags",
-        "movements", "legacy_records", "legacy_metadata", "legacy_preferences"))
+        "movements", "legacy_records", "legacy_metadata", "legacy_preferences") + if (version >= 3) setOf("pump_profiles") else emptySet())
     val sessionFields = setOf("id", "start", "end", "activeSeconds", "volume", "left", "right",
-        "notes", "mode", "created", "updated") + if (version == 2) setOf("breastfedBefore") else emptySet()
+        "notes", "mode", "created", "updated") + (if (version >= 2) setOf("breastfedBefore") else emptySet()) +
+        (if (version >= 3) setOf("pumpProfileId") else emptySet())
     val schemas = mapOf(
         "sessions" to sessionFields,
         "bags" to setOf("id", "number", "stored", "initial", "location", "expires", "notes", "sourceSession"),
@@ -21,6 +22,12 @@ internal fun validateNativeBackupFields(root: JSONObject, version: Int) {
         "legacy_records" to setOf("kind", "id", "json", "projection", "zone"),
         "legacy_metadata" to setOf("id", "json"),
     )
+    if (version >= 3) {
+        val profiles = root.getJSONArray("pump_profiles")
+        require(profiles.length() <= 100000)
+        for (i in 0 until profiles.length()) fields(profiles.getJSONObject(i),
+            setOf("id", "type", "nickname", "customType", "brand", "model", "notes", "archived"))
+    }
     schemas.forEach { (key, schema) ->
         if (root.has(key)) {
             val array = root.getJSONArray(key)

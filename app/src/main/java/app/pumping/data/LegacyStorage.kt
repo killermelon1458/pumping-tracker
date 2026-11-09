@@ -112,3 +112,13 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE sessions ADD COLUMN breastfedBefore TEXT NOT NULL DEFAULT 'UNKNOWN'")
     }
 }
+
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS pump_profiles (id TEXT NOT NULL, type TEXT NOT NULL, nickname TEXT COLLATE NOCASE NOT NULL, customType TEXT NOT NULL, brand TEXT NOT NULL, model TEXT NOT NULL, notes TEXT NOT NULL, archived INTEGER NOT NULL, PRIMARY KEY(id))")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_pump_profiles_nickname ON pump_profiles(nickname)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_pump_profiles_type ON pump_profiles(type)")
+        db.execSQL("ALTER TABLE sessions ADD COLUMN pumpProfileId TEXT DEFAULT NULL REFERENCES pump_profiles(id) ON UPDATE NO ACTION ON DELETE RESTRICT")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_pumpProfileId ON sessions(pumpProfileId)")
+    }
+}

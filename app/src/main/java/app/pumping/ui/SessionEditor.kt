@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.pumping.*
 import app.pumping.data.*
 import app.pumping.domain.*
@@ -18,6 +19,16 @@ fun SessionEditor(
     notification: () -> Unit,
     close: () -> Unit,
 ) {
+    val pumps by vm.pumps.collectAsStateWithLifecycle()
+    var selectedPump by rememberSaveable { mutableStateOf(existing?.pumpProfileId) }
+    var pumpInitialized by rememberSaveable { mutableStateOf(existing != null) }
+    LaunchedEffect(Unit) {
+        if (!pumpInitialized) {
+            val last = vm.repo.defaultPumpProfile()
+            if (!pumpInitialized) selectedPump = last
+            pumpInitialized = true
+        }
+    }
     var inputUnit by rememberSaveable { mutableStateOf(s.inputUnit) }
     val draftId = rememberSaveable {
         existing?.id ?: timer?.id?.takeIf { it.isNotEmpty() } ?: newId()
@@ -134,6 +145,7 @@ fun SessionEditor(
                         right =
                             if (split && !zero) Volume.parse(right.ifBlank { "0" }, inputUnit)
                             else null,
+                        pumpProfileId = selectedPump,
                         breastfedBefore = BreastfeedingStatus.valueOf(breastfedBefore),
                         notes = notes,
                         mode = existing?.mode ?: if (timer != null) "TIMER" else "MANUAL",
@@ -170,7 +182,7 @@ fun SessionEditor(
         if (existing == null) "Log Pump" else "Edit Pump",
         { discard = true },
         { requestSave() },
-        !busy && output != null && (output > 0 || zero),
+        !busy && pumpInitialized && output != null && (output > 0 || zero),
         inputUnit = inputUnit,
         unitEnabled = !busy,
         onUnitToggle = {
@@ -224,10 +236,14 @@ fun SessionEditor(
                 )
         }
         CardBlock {
-            Text("Breastfed before pumping", style = MaterialTheme.typography.titleMedium)
-            Choices(listOf("Yes", "No", "Unknown"),
-                BreastfeedingStatus.valueOf(breastfedBefore).name.lowercase().replaceFirstChar { it.uppercase() }) {
-                breastfedBefore = it.uppercase()
+            Text("Breastfed before pumping?", style = MaterialTheme.typography.titleMedium)
+            Choices(BreastfeedingStatus.entries.map { it.displayLabel() },
+                BreastfeedingStatus.valueOf(breastfedBefore).displayLabel()) { label ->
+                breastfedBefore = BreastfeedingStatus.entries.first { it.displayLabel() == label }.name
+            }
+            PumpSelector(pumps, selectedPump, existing?.pumpProfileId) {
+                selectedPump = it
+                pumpInitialized = true
             }
         }
         CardBlock {

@@ -19,6 +19,7 @@ class PumpViewModel(application: Application) : AndroidViewModel(application) {
         repo.dao
             .sessions()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val pumps = repo.dao.pumpProfiles().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val bags =
         repo.dao
             .balances()

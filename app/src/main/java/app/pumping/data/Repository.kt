@@ -8,6 +8,23 @@ data class Allocation(val volume: Long, val location: String, val days: Int, val
 class Repository(val db: PumpDatabase) {
     val dao = db.dao()
 
+    suspend fun savePumpProfile(profile: PumpProfile) = db.withTransaction {
+        validatePumpProfile(profile)
+        require(dao.allPumpProfiles().none { it.id != profile.id && it.nickname.equals(profile.nickname, ignoreCase = true) }) {
+            "That nickname is already used by another pump. Choose another nickname."
+        }
+        if (dao.pumpProfile(profile.id) == null) dao.insertPumpProfile(profile) else dao.updatePumpProfile(profile)
+    }
+
+    suspend fun archivePumpProfile(id: String, archived: Boolean) = db.withTransaction {
+        val profile = requireNotNull(dao.pumpProfile(id)) { "This pump no longer exists" }
+        dao.updatePumpProfile(profile.copy(archived = archived))
+    }
+
+    suspend fun defaultPumpProfile(): String? = db.withTransaction {
+        dao.lastSavedSession()?.pumpProfileId?.let { id -> dao.pumpProfile(id)?.takeUnless { it.archived }?.id }
+    }
+
     suspend fun saveSession(s: Session, bags: List<Allocation> = emptyList()) =
         db.withTransaction {
             require(!dao.isDeleted("session", s.id)) {
@@ -16,6 +33,10 @@ class Repository(val db: PumpDatabase) {
             validateSession(s)
             require(bags.all { it.volume > 0 }) { "Every bag needs a positive quantity" }
             val existing = dao.session(s.id)
+            s.pumpProfileId?.let { id ->
+                val pump = requireNotNull(dao.pumpProfile(id)) { "Selected pump no longer exists" }
+                require(!pump.archived || existing?.pumpProfileId == id) { "Select an active pump or Unspecified" }
+            }
             val allocated = dao.allocated(s.id)
             require(allocated + bags.sumOf { it.volume } <= s.volume) {
                 "Stored allocations exceed measured output. Existing bags retain their recorded quantities."

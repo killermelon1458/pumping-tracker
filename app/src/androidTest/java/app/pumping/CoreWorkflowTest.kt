@@ -36,11 +36,12 @@ class CoreWorkflowTest {
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(10000) {
             runBlocking { app.repository.dao.allBags().any { it.number == number && it.initial == Volume.parse("9", "oz") } } &&
+                compose.onAllNodesWithTag("editor-header").fetchSemanticsNodes().isEmpty() &&
                 compose.onAllNodesWithText("Quick Log").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Stash").performClick()
         compose.onNodeWithText("Use soon").assertIsDisplayed()
-        compose.onNodeWithText("−").performClick()
+        compose.onNodeWithText("−").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
         val bagLabel = "#$number · 9 oz · Fridge"
         compose.waitUntil(15000) {
             compose.onAllNodesWithText(bagLabel).fetchSemanticsNodes().isNotEmpty()

@@ -27,7 +27,7 @@ class BreastfeedingContextWorkflowTest {
     }
     @Test fun oneTapContextSurvivesRecreationAndEditWithoutChangingTimes() {
         compose.onNodeWithText("Quick Log").performClick()
-        compose.onNodeWithText("Unknown",substring=false).assertIsSelected()
+        compose.onNodeWithText("Not specified",substring=false).assertIsSelected()
         compose.onNodeWithText("Yes",substring=false).performClick()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("Yes",substring=false).assertIsSelected()
@@ -41,7 +41,7 @@ class BreastfeedingContextWorkflowTest {
         edit(first.id);compose.onNodeWithText("No",substring=false).performClick()
         compose.onNodeWithText("Save").performClick();waitClosed()
         assertEquals(BreastfeedingStatus.NO,saved().breastfedBefore)
-        edit(first.id);compose.onNodeWithText("Unknown",substring=false).performClick()
+        edit(first.id);compose.onNodeWithText("Not specified",substring=false).performClick()
         compose.onNodeWithText("Save").performClick();waitClosed()
         val last=saved();assertEquals(BreastfeedingStatus.UNKNOWN,last.breastfedBefore)
         assertEquals(first.start,last.start);assertEquals(first.end,last.end);assertEquals(first.activeSeconds,last.activeSeconds)
@@ -54,16 +54,19 @@ class BreastfeedingContextWorkflowTest {
         }
         val first=runBlocking { app().repository.dao.allSessions().first() }
         edit(first.id)
-        compose.onNodeWithText("Unknown",substring=false).assertIsSelected()
+        compose.onNodeWithText("Not specified",substring=false).assertIsSelected()
         compose.onNodeWithText("Save").performClick();waitClosed()
         assertEquals(first.copy(updated=runBlocking { app().repository.dao.session(first.id) }!!.updated),runBlocking { app().repository.dao.session(first.id) })
     }
-    @Test fun nativeV2SafImportRestoresExplicitContext() {
+    @Test fun nativeV3SafImportRestoresExplicitContextAndArchivedPump() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
-        val source=Uri.parse("content://${instrumentation.context.packageName}.synthetic-backup/synthetic-context-v2.json")
-        val original=Session(id="synthetic-native-context",start=1000,end=61000,activeSeconds=60,volume=1000,breastfedBefore=BreastfeedingStatus.YES)
+        val source=Uri.parse("content://${instrumentation.context.packageName}.synthetic-backup/synthetic-context-v3.json")
+        val pump=PumpProfile(nickname="Synthetic archived pump",brand="Brand",model="Model",notes="Synthetic pump note")
+        val original=Session(pumpProfileId=pump.id,id="synthetic-native-context",start=1000,end=61000,activeSeconds=60,volume=1000,breastfedBefore=BreastfeedingStatus.YES)
         val text=runBlocking {
+            app().repository.savePumpProfile(pump)
             app().repository.saveSession(original)
+            app().repository.archivePumpProfile(pump.id,true)
             Backup(app().repository,app().settings).export().also { app().db.clearAllTables() }
         }
         compose.activity.contentResolver.openOutputStream(source,"wt")!!.use { it.write(text.toByteArray()) }
@@ -83,6 +86,7 @@ class BreastfeedingContextWorkflowTest {
             compose.onNodeWithText("Import",substring=false).performClick()
             compose.waitUntil(15000) { runBlocking { app().repository.dao.session(original.id) } != null }
             assertEquals(original,saved())
+            assertEquals(pump.copy(archived=true),runBlocking { app().repository.dao.pumpProfile(pump.id) })
         } finally { instrumentation.removeMonitor(monitor) }
     }
 }

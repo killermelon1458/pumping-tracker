@@ -8,7 +8,9 @@ fun newId(): String = UUID.randomUUID().toString()
 
 enum class BreastfeedingStatus { YES, NO, UNKNOWN }
 
-@Entity(tableName = "sessions")
+@Entity(tableName = "sessions", indices = [Index("pumpProfileId")], foreignKeys = [
+    ForeignKey(entity = PumpProfile::class, parentColumns = ["id"], childColumns = ["pumpProfileId"], onDelete = ForeignKey.RESTRICT)
+])
 data class Session(
     @PrimaryKey val id: String = newId(),
     val start: Long,
@@ -23,6 +25,7 @@ data class Session(
     val updated: Long = System.currentTimeMillis(),
     @ColumnInfo(defaultValue = "'UNKNOWN'")
     val breastfedBefore: BreastfeedingStatus = BreastfeedingStatus.UNKNOWN,
+    @ColumnInfo(defaultValue = "NULL") val pumpProfileId: String? = null,
 )
 
 @Entity(
@@ -77,6 +80,14 @@ data class BagBalance(@Embedded val bag: Bag, val remaining: Long)
 
 @Dao
 interface PumpDao {
+    @Query("SELECT * FROM pump_profiles ORDER BY archived, nickname, id") fun pumpProfiles(): Flow<List<PumpProfile>>
+    @Query("SELECT * FROM pump_profiles ORDER BY archived, nickname, id") suspend fun allPumpProfiles(): List<PumpProfile>
+    @Query("SELECT * FROM pump_profiles WHERE id = :id") suspend fun pumpProfile(id: String): PumpProfile?
+    @Insert suspend fun insertPumpProfile(p: PumpProfile)
+    @Update suspend fun updatePumpProfile(p: PumpProfile)
+    @Query("DELETE FROM pump_profiles") suspend fun clearPumpProfiles()
+    @Query("SELECT * FROM sessions ORDER BY updated DESC, created DESC, id DESC LIMIT 1") suspend fun lastSavedSession(): Session?
+
     @Query("SELECT * FROM sessions ORDER BY start DESC") fun sessions(): Flow<List<Session>>
 
     @Query("SELECT * FROM sessions ORDER BY start DESC") suspend fun allSessions(): List<Session>
@@ -178,6 +189,7 @@ interface PumpDao {
 @Database(
     entities =
         [
+            PumpProfile::class,
             Session::class,
             Bag::class,
             Movement::class,
@@ -186,7 +198,7 @@ interface PumpDao {
             LegacyPreferences::class,
             DeletionMarker::class,
         ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class PumpDatabase : RoomDatabase() {

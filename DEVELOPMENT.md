@@ -2,7 +2,7 @@
 
 The authoritative policy is [docs/VERSIONING.md](docs/VERSIONING.md). Pumping uses **MAJOR.MINOR.REVISION** with a build-channel suffix. The third number is an intentional revision counter, not strict Semantic Versioning.
 
-The published `1.4.0-beta.1` (code 7) is historical and unchanged. Quick Log timing shipped in `1.4.1-dev` (code 8). Current Stage 1 is `1.4.2-dev` (code 9), adding breastfeeding context and native backup v2; see [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
+The published `1.4.0-beta.1` (code 7) is historical and unchanged. Quick Log timing shipped in `1.4.1-dev` (code 8). Stage 1 `1.4.2-dev` (code 9) was accepted on device. Current Stage 2 is `1.4.3-dev` (code 10), adding pump profiles and native backup v3; see [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
 
 ## Advance and promote
 
@@ -40,10 +40,10 @@ Use a disposable emulator for `./gradlew :app:connectedDebugAndroidTest`; instru
 Identical builds may be restaged; a different APK under an existing versioned filename fails without replacing it. Explicitly resolve/archive a candidate collision or advance the revision for changed distributable content. Keep previous versioned APKs. Tests are not invented by staging: retain commands/results in each development version directory's `BUILD_INFO.md` (release verification reports remain under `test-builds/`).
 
 ```bash
-adb install -r dev-builds/1.4.2-dev/Pumping-1.4.2-dev.apk
+adb install -r dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk
 ```
 
-Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.2-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. Preparing this convention does not authorize any release, tag, upload or publication.
+Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.3-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. Preparing this convention does not authorize any release, tag, upload or publication.
 
 
 ## Commit and tag checkpoints

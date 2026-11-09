@@ -1,6 +1,6 @@
 # Building and verifying signed beta releases
 
-The permanent production application ID is `dev.killermelon1458.pumping`. The current published beta is **1.4.0-beta.1 (7)** and remains unchanged. Current source revision **1.4.2**, code **9**, builds as **1.4.2-dev** for debug or **1.4.2-beta** for release; no new beta is authorized by changing this convention. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
+The permanent production application ID is `dev.killermelon1458.pumping`. The current published beta is **1.4.0-beta.1 (7)** and remains unchanged. Current source revision **1.4.3**, code **10**, builds as **1.4.3-dev** for debug or **1.4.3-beta** for release; no new beta is authorized by changing this convention. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
 
 From this beta onward, distributed updates must use this permanent ID, the same permanent signing key/certificate and an increased version code. Preserve Room migrations, DataStore state and compatibility with previous native/iOS backups. Never clear or uninstall a real-data installation to make an update work.
 
@@ -83,10 +83,10 @@ The script runs SDK Build Tools 36.1.0 `apksigner verify --verbose --print-certs
 
 After automatic Gradle staging, independently verify the permanent fingerprint with the command above. Only after this verification succeeds does the helper retain/stage the same APK and write its release-verification files:
 
-- `test-builds/Pumping-1.4.2-beta.apk`
-- `test-builds/Pumping-1.4.2-beta.apk.sha256`
-- `test-builds/Pumping-1.4.2-beta-verification.json`
-- `test-builds/Pumping-1.4.2-beta-verification.md`
+- `test-builds/Pumping-1.4.3-beta.apk`
+- `test-builds/Pumping-1.4.3-beta.apk.sha256`
+- `test-builds/Pumping-1.4.3-beta-verification.json`
+- `test-builds/Pumping-1.4.3-beta-verification.md`
 
 The helper derives the beta filename/version from `gradle.properties`; the filenames above illustrate the current revision only. Promotion keeps its revision and versionCode unchanged. The metadata records the actual signing fingerprint, checksum, current source HEAD and dirty-worktree state. A dirty build is a local candidate, not proof that HEAD contains those changes; commit/rebuild before tagging. The script refuses to overwrite a different existing beta asset: archive that local candidate first if replacing it intentionally. Record automated and device test results separately in `test-builds/BUILD_INFO.md`; the verifier does not invent test results or certify the freshness of old reports.
 
@@ -101,7 +101,7 @@ unset PUMPING_KEYSTORE_PASSWORD PUMPING_KEY_PASSWORD
 On an empty disposable emulator first, verify clean installation, session editing/deletion, linked stash creation/usage/deletion, bag-number reuse, both unit settings, Start/End reference, reminders/actions, native JSON export/reimport, and synthetic iOS import/reimport. Restart the app and verify persisted records/settings. Check actual release file-picker and alarm behavior. Do not include private backups in any test artifact.
 
 ```bash
-adb install test-builds/Pumping-1.4.2-beta.apk
+adb install test-builds/Pumping-1.4.3-beta.apk
 ```
 
 For subsequent public releases, test `adb install -r` over the previously distributed release using the same permanent certificate and a higher version code. Verify quantities, notes, relationships, reminder state and backups remain intact. Keep the first beta APK/certificate metadata for future upgrade tests. No migration from development installations is attempted; imports between variants require an explicit user-selected backup.
@@ -110,9 +110,9 @@ For subsequent public releases, test `adb install -r` over the previously distri
 
 1. Complete the release installation/physical-device checks and update the local build information and release notes with actual results, final commit and signing fingerprint.
 2. Verify the final reviewed changes are committed and pushed by you. Rebuild/verify if the source commit changes.
-3. Create tag **`v1.4.2-beta`** at the exact recorded build commit and push it yourself.
-4. In <https://github.com/killermelon1458/pumping-tracker/releases/new>, select that tag, set title **Pumping 1.4.2 Beta**, and mark **Prerelease**.
-5. Paste the reviewed local `test-builds/RELEASE_NOTES-1.4.2-beta.md`. Attach only the verified `Pumping-1.4.2-beta.apk` and its checksum (and public verification metadata if desired), then publish yourself.
+3. Create tag **`v1.4.3-beta`** at the exact recorded build commit and push it yourself.
+4. In <https://github.com/killermelon1458/pumping-tracker/releases/new>, select that tag, set title **Pumping 1.4.3 Beta**, and mark **Prerelease**.
+5. Paste the reviewed local `test-builds/RELEASE_NOTES-1.4.3-beta.md`. Attach only the verified `Pumping-1.4.3-beta.apk` and its checksum (and public verification metadata if desired), then publish yourself.
 
 No task here creates a commit, Git tag, GitHub Release, remote change, upload or deployment workflow. Credentials never belong in release assets.
 

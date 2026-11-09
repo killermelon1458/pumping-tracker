@@ -24,8 +24,14 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             repo.dao.synchronizeLegacyReservations()
             JSONObject()
                 .put("format", "Pumping")
-                .put("version", 2)
+                .put("version", 3)
                 .put("preferences_snapshot", preferences)
+                .put("pump_profiles", JSONArray().apply {
+                    repo.dao.allPumpProfiles().forEach { p -> put(JSONObject()
+                        .put("id", p.id).put("type", p.type.name).put("nickname", p.nickname)
+                        .put("customType", p.customType).put("brand", p.brand).put("model", p.model)
+                        .put("notes", p.notes).put("archived", p.archived)) }
+                })
                 .put(
                     "deletions",
                     JSONArray().apply {
@@ -52,6 +58,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                                     .put("created", s.created)
                                     .put("updated", s.updated)
                                     .put("breastfedBefore", s.breastfedBefore.name)
+                                    .put("pumpProfileId", s.pumpProfileId ?: JSONObject.NULL)
                             )
                         }
                     },
@@ -150,7 +157,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
         require(text.length <= LegacyFormat.MAX_BYTES) { "Backup exceeds 20 MB." }
         val root = LegacyFormat.parseJson(text)
         val version = root.getInt("version")
-        require(root.getString("format") == "Pumping" && version in 1..2) {
+        require(root.getString("format") == "Pumping" && version in 1..3) {
             "Unsupported backup format"
         }
         validateNativeBackupFields(root, version)
@@ -161,6 +168,15 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             require(a.length() <= 100000)
             return (0 until a.length()).map { a.getJSONObject(it) }
         }
+        val inputProfiles = if (version >= 3) objects("pump_profiles").map { j ->
+            require(j.get("archived") is Boolean) { "Invalid archived flag" }
+            PumpProfile(id = j.getString("id"), type = PumpType.valueOf(j.getString("type")),
+                nickname = j.getString("nickname"), customType = j.getString("customType"),
+                brand = j.getString("brand"), model = j.getString("model"), notes = j.getString("notes"),
+                archived = j.getBoolean("archived")).also(::validatePumpProfile)
+        } else emptyList()
+        require(inputProfiles.map { it.id }.distinct().size == inputProfiles.size) { "Duplicate pump IDs" }
+        require(inputProfiles.map { it.nickname.lowercase(java.util.Locale.ROOT) }.distinct().size == inputProfiles.size) { "Duplicate pump nicknames" }
         val inputSessions =
             objects("sessions").map { j ->
                 Session(
@@ -177,6 +193,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                     j.getLong("updated"),
                     if (version == 1) BreastfeedingStatus.UNKNOWN
                     else BreastfeedingStatus.valueOf(j.getString("breastfedBefore")),
+                    if (version >= 3) j.nullString("pumpProfileId") else null,
                 )
             }
         val inputBags =
@@ -303,6 +320,9 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                 }
             else emptyList()
         inputSessions.forEach(::validateSession)
+        require(inputSessions.all { s -> s.pumpProfileId == null || inputProfiles.any { it.id == s.pumpProfileId } }) {
+            "Missing pump profile in backup"
+        }
         repo.db.withTransaction {
             val incomingState = DeletedRecords(incomingDeletions)
             require(
@@ -395,6 +415,9 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                     "Allocations exceed output"
                 }
             }
+            val oldProfiles = repo.dao.allPumpProfiles().associateBy { it.id }
+            require(inputProfiles.all { oldProfiles[it.id] == null || oldProfiles[it.id] == it }) { "Pump profile conflicts with existing records" }
+            require(inputProfiles.all { p -> oldProfiles.values.none { it.id != p.id && it.nickname.equals(p.nickname, ignoreCase = true) } }) { "Pump nickname conflicts with existing records" }
             val oldS = repo.dao.allSessions().associateBy { it.id }
             val oldB = repo.dao.allBags().associateBy { it.id }
             val oldM = repo.dao.allMovements().associateBy { it.id }
@@ -429,6 +452,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             require(bags.all { b -> oldB.values.none { it.number == b.number && it.id != b.id } }) {
                 "Bag number conflicts with existing inventory"
             }
+            inputProfiles.filter { it.id !in oldProfiles }.forEach { repo.dao.insertPumpProfile(it) }
             sessions.filter { it.id !in oldS }.forEach { repo.dao.insertSession(it) }
             bags.filter { it.id !in oldB }.forEach { repo.dao.insertBag(it) }
             moves.filter { it.id !in oldM }.forEach { repo.dao.insertMovement(it) }

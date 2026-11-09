@@ -27,7 +27,7 @@ Version| Purpose
 1.4.0-beta.1| Existing historical public release; do not rename
 1.4.1-dev| Quick Log timing UX update
 1.4.2-dev| Breastfeeding context and persistence foundation
-1.4.3-dev| Subsequent fix
+1.4.3-dev| Pump profiles and breastfeeding label correction
 1.4.3-beta| Public beta containing the validated 1.4.3 changes
 1.4.4-dev| Further development
 

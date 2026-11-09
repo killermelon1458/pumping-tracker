@@ -109,7 +109,7 @@ fun BackupControls(vm: PumpViewModel) {
                                     LegacyFormat.parseJson(selected)
                                 }
                             require(
-                                root.opt("format") == "Pumping" && root.optInt("version") in 1..2
+                                root.opt("format") == "Pumping" && root.optInt("version") in 1..3
                             ) {
                                 "Not a supported native Pumping backup. Original iPhone backups must use the .pumping envelope."
                             }
@@ -349,7 +349,7 @@ fun BackupControls(vm: PumpViewModel) {
     replacementConfirm?.let { request ->
         Confirm(
             "Replace all records?",
-            "Safety backup saved. This removes your current records and imports ${request.preview.plan.pumpCount} pumps and ${request.preview.plan.stashCount} stash events. ${if(request.applySettings) "Supported preferences will also change." else "Preferences will be kept."}",
+            "Safety backup saved. This removes your current sessions, stash records and pump profiles and imports ${request.preview.plan.pumpCount} pumps and ${request.preview.plan.stashCount} stash events. ${if(request.applySettings) "Supported preferences will also change." else "Preferences will be kept."}",
             { replacementConfirm = null },
             {
                 replacementConfirm = null

@@ -1,6 +1,6 @@
 # Pumping — Next Beta Feature Plan
 
-**Status:** Stage 1 implemented and verified; awaiting owner physical-device acceptance. Stages 2–4 are not implemented.
+**Status:** Stage 1 accepted on physical device. Stage 2 implemented and verified, awaiting owner device feedback. Stages 3–4 remain unimplemented.
 **Current public baseline:** `1.4.0-beta.1` (`versionCode 7`).
 **Development baseline:** Quick Log authority-tracking UX is implemented in `1.4.1-dev` (per local Codex report).
 **Location in repository:** `docs/NEXT_BETA_PLAN.md`.
@@ -85,7 +85,7 @@ Choose the simplest defensible Room representation, including nullable foreign k
 
 **Primary user goal:** Compare like-for-like pumping outcomes without an explosion of single-purpose statistic rows.
 
-**Stats UI:** Add a compact, reusable filter bar with at least date range (7/30 days, all/custom), pump profile (individual/all; optionally category), breastfeeding context (`Yes`, `No`, `Unknown`, `All`), and pump mode (`Normal`, `Power`, `Unknown`, `All`). Optionally include time-of-day bands or a comparison grouping selector. Multiple filters must work **simultaneously**. Show active filter chips and obvious Reset; persist filters only if unobtrusive.
+**Stats UI:** Add a compact, reusable filter bar with at least date range (7/30 days, all/custom), pump profile (individual/all; optionally category), breastfeeding context (`Yes`, `No`, `Not specified`, `All`), and pump mode (`Normal`, `Power`, `Unknown`, `All`). Optionally include time-of-day bands or a comparison grouping selector. Multiple filters must work **simultaneously**. Show active filter chips and obvious Reset; persist filters only if unobtrusive.
 
 **Results:** Show sample count, total volume, mean and **median** volume per parent session, left/right split when available, and milk per **active pumping minute**, clearly labeling how calculated. Distinguish `sum(volume)/sum(active time)` from a mean of per-session rates; select one and document it. Never mix power-pump phases into session counts. Support side-by-side grouping by pump under the same breastfeeding/mode/date constraints, and by breastfeeding context under the same pump/date/mode constraints. Show sensible empty states and low-sample cautions; do not rank devices as intrinsically better from uncontrolled differences.
 
@@ -150,7 +150,7 @@ Implementation checks and final test/build results are recorded below after exec
 - [x] Legacy import and deletion/ledger behavior preserved; no silent lossy metadata export.
 - [x] Final complete automated test/lint and APK verification recorded (231 unit, 21 emulator/Compose and 12 tooling tests passed; debug/release lint 0 errors, 20 warnings each).
 - [x] Non-production APK upgrade/process-restart check recorded: 1.4.1-dev/schema 3 → 1.4.2-dev/schema 4 retained synthetic records, links/ledger and mL input preference; Unknown initialized truthfully and explicit Yes survived a cold process restart.
-- [ ] Owner physical-device acceptance of one-tap UI and persistence (pending feedback; STOP after Stage 1).
+- [x] Owner physical-device acceptance of Stage 1 confirmed before Stage 2 authorization.
 
 
 Final Stage 1 verification:
@@ -163,3 +163,43 @@ Final Stage 1 verification:
 - No unresolved automated failures. Physical-device UX/upgrade acceptance remains pending; no Stages 2–4 work, commit, push, tag, signing or publication is authorized/performed by this delivery.
 
 Checkpoint preparation retains the complete tested 1.4.2-dev source state for one owner-reviewed commit. Development artifacts now reside in the version directory above; prior local files remain retained. Preparing the index does not authorize a commit/tag or Stage 2.
+
+
+## Stage 2 implementation record (1.4.3-dev / code 10)
+
+Scope: pump profiles and the breastfeeding label correction only. Stage 1 was accepted on a physical device by the owner. No power-pump phases or filterable statistics UI have been implemented.
+
+### Decisions
+
+- Breastfeeding choices now read **Yes / No / Not specified**; Not specified remains the same internal `UNKNOWN` enum, SQL value and native-backup spelling. This is presentation-only, including history/accessibility text. It does not classify old records as No.
+- Profile → **My Pumps** supports Add/Edit/Archive/Restore. Types: Stationary/Electric, Wearable/Mobile, Manual/Hand, Other/Custom. Custom type label, brand, model and notes are optional. Optional details are collapsible.
+- New profile drafts suggest a type/brand nickname, with numeric suffixes for duplicates. Once the user types a nickname, later type/brand edits cannot change it. Existing saved nicknames never auto-change during edits. Nicknames are unique across active/archived profiles (case-insensitive validation); duplicate custom names produce a clear error without changing records. Stable UUID IDs, not names, identify pumps.
+- Quick Log uses a dropdown of active pumps plus **Unspecified**. Existing sessions retain their stored nullable ID, including archived pumps. The current recorded archived pump remains available in that session's editor only. A new session cannot be assigned an archived pump; saving a stale draft rejects that choice without data loss.
+- New-entry default is derived from the most recently saved retained session (`updated`, `created`, ID tie-break). An explicit Unspecified choice, no history, or an archived last pump defaults to Unspecified. No extra preference/duplicate last-used state is stored. Opening old records never applies this default. Rename/archive never changes the last session's data.
+- Statistics will group/filter by stable profile ID and stored type, with current profile descriptive metadata (including renamed names/current type); no historical metadata snapshots are fabricated. Profile/association indexes support simultaneous joins with existing context, date/time, quantity and active duration. Stage 3 classification remains future work.
+
+### Persistence and backups
+
+- Room **4→5** creates `pump_profiles` (stable ID, type, nickname, customType, brand, model, notes, archived), adds nullable `sessions.pumpProfileId` with indexed FK **ON DELETE RESTRICT**, plus indexes on profile nickname/type. Existing sessions migrate to null, not an inferred device. No data/schema-destructive fallback. Previous migration chain is retained/tested.
+- There is no normal pump deletion action: archive preserves references; the database prevents deleting referenced pumps. Renaming/archiving updates only the profile row. Confirmed full legacy replacement clears sessions before profiles, after the existing native safety-backup workflow.
+- Native JSON **v3** exports all profiles (including archived/unreferenced profiles) and every session association. v1/v2 remain importable with unassigned pump IDs and their original breastfeeding semantics. v3 is deliberate: older v2 apps reject the newer version instead of discarding profiles. Unknown future fields/versions, invalid types/flags, broken references, duplicate names/IDs and conflicts reject atomically.
+- Original iOS `.pumping` format remains unchanged. It cannot preserve profiles/associations; export blocks this metadata and recommends native JSON v3 until Stage 4's optional confirmed lossy export exists. Existing nursing/inventory/timing safety restrictions remain.
+- Default artifact policy remains `dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk`. Per the explicit Stage 2 delivery request, an identical verified copy will also be supplied at `test-builds/Pumping-1.4.3-dev.apk`. Existing release verification paths/signing guards are unchanged.
+
+### Acceptance (updated after final verification)
+
+- [x] Stage 1 physical-device acceptance confirmed by owner.
+- [x] New model, 4→5 migration and v3/v1/v2 import compatibility implemented.
+- [x] No Stage 3/4 UI or data fabrication; timing/volume calculations unchanged.
+- [x] Final verification: 249 unit tests, 25 Compose/instrumentation tests, 13 tooling tests passed; debug/release lint 0 errors and 20 existing warnings each.
+- [x] Actual Dev 1.4.2/schema 4 → 1.4.3/schema 5 upgrade retained records, links, ledger, raw tables and mL setting. Profiles/default selection survived cold restart. Production beta and Dev launched side by side with distinct UIDs and separate synthetic records.
+- [ ] Owner physical-device feedback on Stage 2 (STOP here before Stage 3).
+
+
+Final Stage 2 verification and handoff:
+
+- `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:lintRelease --max-workers=1`: PASS; 249 unit tests including ten migration cases across API 26/35, old/native-v3 backup cases, archived-link safety, nickname validation and simultaneous profile/type/context/date query readiness. Repeat original-iOS merge retains locally assigned pump IDs.
+- `./gradlew :app:connectedDebugAndroidTest :app:lintDebug --max-workers=1`: PASS, all 25 tests on disposable API 36.1. Four new pump-management/selection tests cover all types, optional fields, auto/custom names, renaming/archiving, last-used/Unspecified, and archived historical edits. Native SAF restore includes a complete archived profile. Existing Quick Log timing/units/breastfeeding, stash and reminder workflows passed. The initial existing stash touch-injection race was resolved in the test by waiting for editor dismissal and invoking the button's accessibility action; no stash behavior changed.
+- Actual final-APK upgrade/coexistence evidence: `dev-builds/1.4.3-dev/stage2-device-check.json` (synthetic emulator data only; no reset/uninstall or production-device access). Old `UNKNOWN` remains the exact database value while its label is Not specified. Selecting a pump changed only its association and normal edit timestamp, not recorded quantities/timing/context/notes/inventory.
+- APK: `dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk`, identical explicitly requested copy `test-builds/Pumping-1.4.3-dev.apk`; version code 10; SHA-256 `d442bd87bdea1599c5e8707775f9cc51999d3851fdd44cdc0385d0b5ca3dc1c7`. Verified app ID `dev.killermelon1458.pumping.debug`, label Pumping Dev and standard debug certificate. Existing published 1.4.0-beta.1 asset unchanged.
+- No unresolved automated failures. Global case-insensitive nickname uniqueness (including archived profiles), conservative last-saved defaulting, and grouping by current profile descriptive metadata are intentional design choices for owner review. Physical-device Stage 2 feedback remains pending. STOP before Stage 3/4; no commit, tag, push or production signing/publication performed.

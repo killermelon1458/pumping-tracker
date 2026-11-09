@@ -141,7 +141,7 @@ fun PumpScreen(
                                     )
                                 }
                                 Text(
-                                    "Breastfed before pumping: ${row.breastfedBefore.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                                    "Breastfed before pumping: ${row.breastfedBefore.displayLabel()}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 if (row.notes.isNotEmpty()) Text(row.notes)

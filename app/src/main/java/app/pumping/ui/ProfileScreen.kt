@@ -77,6 +77,7 @@ fun ProfileScreen(
                 Toggle("Dark Mode", s.dark, { vm.launch { vm.store.bool("dark", it) } })
             }
         }
+        item { CardBlock { TextButton({ open("pumps") }) { Text("My Pumps") } } }
         item { BackupControls(vm) }
         item {
             CardBlock {

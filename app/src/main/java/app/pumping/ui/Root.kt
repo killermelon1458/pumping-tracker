@@ -195,6 +195,7 @@ fun PumpingRoot(vm: PumpViewModel) {
                                 { sheet = "" },
                                 { sheet = "use" },
                             )
+                        "pumps" -> PumpManager(vm, { sheet = "" })
                         "goal" -> GoalEditor(vm, s, { sheet = "" })
                         else -> SettingsDetail(vm, s, sheet, requestNotification, { sheet = "" })
                     }
