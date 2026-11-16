@@ -4,11 +4,12 @@ Pumping is an independently developed, native Android application for logging br
 
 **Status: beta / pre-release.** This is a source project under active development, not a published production release. Physical-device validation, particularly Samsung One UI notifications and background battery restrictions, remains part of beta preparation.
 
-The current public beta is **1.4.0-beta.1** (code **7**). The current development revision is **1.4.3-dev** (code **10**), adding My Pumps, optional session pump selection, native backup v3, and the Not specified breastfeeding label while preserving Quick Log timing. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [development versioning](DEVELOPMENT.md).
+The current public beta is **1.4.0-beta.1** (code **7**). The current development revision is **1.4.6-dev** (code **13**), fixing immediate Quick Log Duration synchronization while retaining basic/detailed power-pump editing and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [development versioning](DEVELOPMENT.md).
 
 ## Features
 
 - Timed and manually logged pumping sessions, editable history, notes, optional left/right volumes, and explicit Yes/No/Not specified breastfeeding context.
+- Power-pump classification with optional ordered pumping/rest intervals and separate active/elapsed timing.
 - My Pumps profiles with optional details, archive support, and quick session selection.
 - Milk stash bags with storage locations, expiry estimates, partial withdrawals, transaction history and confirmed deletion of linked records.
 - Statistics calculated from saved sessions and inventory transactions.
@@ -50,14 +51,14 @@ From the repository root:
 ./gradlew :app:assembleDebug
 ```
 
-Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
+Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
 
 ## Install for development
 
 Use a disposable test device or emulator with USB debugging enabled:
 
 ```bash
-adb install -r dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk
+adb install -r dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk
 ```
 
 An update must use the same application ID and signing certificate to preserve the installation. Do not uninstall an installation containing real records without first exporting a backup. Debug APKs are for development; they are not signed beta/production releases. Generated APKs and local `dev-builds/` / `test-builds/` deliveries are intentionally not part of the source repository.

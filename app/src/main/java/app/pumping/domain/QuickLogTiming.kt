@@ -41,3 +41,10 @@ fun durationSeconds(text: String): Long {
 /** Retain the original offset in an overlapping hour; resolve a nonexistent time forward. */
 fun resolveEditorTime(date: LocalDate, hour: Int, minute: Int, zone: ZoneId, offset: ZoneOffset): Long =
     ZonedDateTime.ofLocal(date.atTime(hour, minute), zone, offset).toInstant().toEpochMilli()
+
+/** Exact editable minutes at the stored whole-second precision (including paused timers). */
+fun durationMinutes(seconds: Long): String {
+    val text = BigDecimal.valueOf(seconds).divide(BigDecimal(60), 9, RoundingMode.CEILING)
+        .stripTrailingZeros().toPlainString()
+    return if ('.' in text) text else "$text.0"
+}

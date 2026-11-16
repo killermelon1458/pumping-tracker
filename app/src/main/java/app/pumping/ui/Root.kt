@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 fun PumpingRoot(vm: PumpViewModel) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val detailedSessionIds by vm.detailedSessionIds.collectAsStateWithLifecycle()
     val bags by vm.bags.collectAsStateWithLifecycle()
     val movements by vm.movements.collectAsStateWithLifecycle()
     val timer by vm.timer.collectAsStateWithLifecycle()
@@ -119,6 +120,7 @@ fun PumpingRoot(vm: PumpViewModel) {
                                     sheet = "session"
                                 },
                                 stashedSessionIds = bags.mapNotNull { it.bag.sourceSession }.toSet(),
+                                detailedSessionIds = detailedSessionIds.toSet(),
                             )
                         1 ->
                             StashScreen(

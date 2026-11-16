@@ -15,12 +15,12 @@ class QuickLogTimingWorkflowTest {
     private fun app() = compose.activity.application as SyntheticTestApplication
     @Before fun reset() = runBlocking { app().db.clearAllTables(); app().settings.string("unit", "oz") }
 
-    @Test fun durationCommitsOnlyOnDoneAndMovesStartNotEnd() {
+    @Test fun durationMovesStartImmediatelyAndDoneIsIdempotent() {
         compose.onNodeWithText("Quick Log").performClick()
-        val endText = compose.onNodeWithText("Ended:", substring=true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
-        compose.onNodeWithTag("Active duration (minutes)").performTextReplacement("25")
-        compose.onNodeWithTag("Active duration (minutes)").performImeAction()
-        compose.onNodeWithText("Ended:", substring=true).assertTextContains(endText.removePrefix("[").removeSuffix("]"))
+        val endText = compose.onNodeWithText("End:", substring=true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
+        compose.onNodeWithTag("Duration (minutes)").performTextReplacement("25")
+        compose.onNodeWithTag("Duration (minutes)").performImeAction()
+        compose.onNodeWithText("End:", substring=true).assertTextContains(endText.removePrefix("[").removeSuffix("]"))
         compose.onNodeWithTag("Volume (oz)").performTextInput("1")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(10000) { runBlocking { app().repository.dao.allSessions().isNotEmpty() } }

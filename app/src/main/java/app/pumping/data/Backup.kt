@@ -24,8 +24,12 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             repo.dao.synchronizeLegacyReservations()
             JSONObject()
                 .put("format", "Pumping")
-                .put("version", 3)
+                .put("version", 4)
                 .put("preferences_snapshot", preferences)
+                .put("session_phases", JSONArray().apply {
+                    repo.dao.allPhases().forEach { p -> put(JSONObject().put("id", p.id)
+                        .put("sessionId", p.sessionId).put("position", p.position).put("kind", p.kind.name).put("seconds", p.seconds)) }
+                })
                 .put("pump_profiles", JSONArray().apply {
                     repo.dao.allPumpProfiles().forEach { p -> put(JSONObject()
                         .put("id", p.id).put("type", p.type.name).put("nickname", p.nickname)
@@ -59,6 +63,8 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                                     .put("updated", s.updated)
                                     .put("breastfedBefore", s.breastfedBefore.name)
                                     .put("pumpProfileId", s.pumpProfileId ?: JSONObject.NULL)
+                                    .put("powerStatus", s.powerStatus.name)
+                                    .put("elapsedKnown", s.elapsedKnown)
                             )
                         }
                     },
@@ -157,7 +163,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
         require(text.length <= LegacyFormat.MAX_BYTES) { "Backup exceeds 20 MB." }
         val root = LegacyFormat.parseJson(text)
         val version = root.getInt("version")
-        require(root.getString("format") == "Pumping" && version in 1..3) {
+        require(root.getString("format") == "Pumping" && version in 1..4) {
             "Unsupported backup format"
         }
         validateNativeBackupFields(root, version)
@@ -177,8 +183,15 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
         } else emptyList()
         require(inputProfiles.map { it.id }.distinct().size == inputProfiles.size) { "Duplicate pump IDs" }
         require(inputProfiles.map { it.nickname.lowercase(java.util.Locale.ROOT) }.distinct().size == inputProfiles.size) { "Duplicate pump nicknames" }
+        val inputPhases = if (version >= 4) objects("session_phases").map { j ->
+            require(j.get("seconds") is Number && j.get("position") is Number) { "Invalid interval duration or position" }
+            SessionPhase(j.getString("id"), j.getString("sessionId"), LegacyFormat.integer(j.get("position"), 0, 199),
+                PhaseKind.valueOf(j.getString("kind")), j.get("seconds").toString().toBigDecimal().longValueExact())
+        } else emptyList()
+        require(inputPhases.map { it.id }.distinct().size == inputPhases.size) { "Duplicate interval IDs" }
         val inputSessions =
             objects("sessions").map { j ->
+                if (version >= 4) require(j.get("elapsedKnown") is Boolean) { "Invalid elapsed-time marker" }
                 Session(
                     j.getString("id"),
                     j.getLong("start"),
@@ -194,6 +207,8 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                     if (version == 1) BreastfeedingStatus.UNKNOWN
                     else BreastfeedingStatus.valueOf(j.getString("breastfedBefore")),
                     if (version >= 3) j.nullString("pumpProfileId") else null,
+                    if (version >= 4) PowerPumpStatus.valueOf(j.getString("powerStatus")) else PowerPumpStatus.UNKNOWN,
+                    if (version >= 4) j.getBoolean("elapsedKnown") else true,
                 )
             }
         val inputBags =
@@ -320,6 +335,8 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
                 }
             else emptyList()
         inputSessions.forEach(::validateSession)
+        require(inputPhases.all { p -> inputSessions.any { it.id == p.sessionId } }) { "Missing interval parent" }
+        inputSessions.forEach { validateSessionPhases(it, inputPhases.filter { p -> p.sessionId == it.id }.sortedBy { p -> p.position }) }
         require(inputSessions.all { s -> s.pumpProfileId == null || inputProfiles.any { it.id == s.pumpProfileId } }) {
             "Missing pump profile in backup"
         }
@@ -335,6 +352,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             }
             val state = DeletedRecords(repo.dao.deletions() + incomingDeletions)
             val sessions = inputSessions.filterNot { state.session(it.id) }
+            val phases = inputPhases.filterNot { state.session(it.sessionId) }
             val bags =
                 inputBags
                     .filterNot { state.bag(it.id) }
@@ -418,6 +436,9 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             val oldProfiles = repo.dao.allPumpProfiles().associateBy { it.id }
             require(inputProfiles.all { oldProfiles[it.id] == null || oldProfiles[it.id] == it }) { "Pump profile conflicts with existing records" }
             require(inputProfiles.all { p -> oldProfiles.values.none { it.id != p.id && it.nickname.equals(p.nickname, ignoreCase = true) } }) { "Pump nickname conflicts with existing records" }
+            val oldPhases = repo.dao.allPhases()
+            val oldPhaseIds = oldPhases.associateBy { it.id }
+            require(phases.all { oldPhaseIds[it.id] == null || oldPhaseIds[it.id] == it }) { "Interval IDs conflict with existing records" }
             val oldS = repo.dao.allSessions().associateBy { it.id }
             val oldB = repo.dao.allBags().associateBy { it.id }
             val oldM = repo.dao.allMovements().associateBy { it.id }
@@ -428,6 +449,9 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             ) {
                 "Backup conflicts with existing records; import into an empty installation or use a matching backup"
             }
+            require(sessions.filter { it.id in oldS }.all { s ->
+                oldPhases.filter { it.sessionId == s.id }.sortedBy { it.position } == phases.filter { it.sessionId == s.id }.sortedBy { it.position }
+            }) { "Timing intervals conflict with the saved session. Nothing was imported." }
             val unionMoves = oldM.values.toList() + moves.filter { it.id !in oldM }
             val unionBags = oldB.values.toList() + bags.filter { it.id !in oldB }
             unionBags.forEach { b ->
@@ -454,6 +478,7 @@ class Backup(private val repo: Repository, private val settings: SettingsStore) 
             }
             inputProfiles.filter { it.id !in oldProfiles }.forEach { repo.dao.insertPumpProfile(it) }
             sessions.filter { it.id !in oldS }.forEach { repo.dao.insertSession(it) }
+            phases.filter { it.sessionId !in oldS }.forEach { repo.dao.insertPhase(it) }
             bags.filter { it.id !in oldB }.forEach { repo.dao.insertBag(it) }
             moves.filter { it.id !in oldM }.forEach { repo.dao.insertMovement(it) }
             val oldLegacy = repo.dao.legacyRecords().associateBy { it.kind to it.id }

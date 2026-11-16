@@ -37,7 +37,7 @@ class BreastfeedingContextTest {
         repo.useBag(bag.id,1000,"Feeding",bag.stored+1,"Synthetic use")
         repo.saveSession(session("synthetic-deleted",BreastfeedingStatus.NO))
         repo.deleteSession("synthetic-deleted")
-        val text=backup.export();assertEquals(3,JSONObject(text).getInt("version"))
+        val text=backup.export();assertEquals(4,JSONObject(text).getInt("version"))
         val other=memory()
         try {
             val r=Repository(other);val b=Backup(r,store(r));b.import(text);b.import(text)
@@ -55,6 +55,9 @@ class BreastfeedingContextTest {
     @Test fun v1ImportsAsUnknownAndIsIdempotent() = runBlocking {
         repo.saveSession(session("synthetic-v1",BreastfeedingStatus.NO))
         val v1=JSONObject(backup.export()).put("version",1)
+        v1.remove("session_phases")
+        v1.getJSONArray("sessions").getJSONObject(0).remove("powerStatus")
+        v1.getJSONArray("sessions").getJSONObject(0).remove("elapsedKnown")
         v1.remove("pump_profiles")
         v1.getJSONArray("sessions").getJSONObject(0).remove("pumpProfileId")
         v1.getJSONArray("sessions").getJSONObject(0).remove("breastfedBefore")
@@ -72,7 +75,7 @@ class BreastfeedingContextTest {
         repo.saveSession(session("synthetic-valid",BreastfeedingStatus.YES))
         val text=backup.export()
         val malformed=listOf(
-            JSONObject(text).put("version",4),
+            JSONObject(text).put("version",5),
             JSONObject(text).put("unrecognizedProfiles",org.json.JSONArray()),
             JSONObject(text).apply { getJSONArray("sessions").getJSONObject(0).put("pumpProfileId","future") },
             JSONObject(text).apply { getJSONArray("sessions").getJSONObject(0).put("breastfedBefore","SOMETIMES") },
@@ -117,7 +120,7 @@ class BreastfeedingContextTest {
 
     @Test fun explicitContextSurvivesDiskReopenAndEditWithoutTimestampChanges() = runBlocking {
         val name="synthetic-context-${System.nanoTime()}.db"
-        fun open() = Room.databaseBuilder(context,PumpDatabase::class.java,name).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5).allowMainThreadQueries().build()
+        fun open() = Room.databaseBuilder(context,PumpDatabase::class.java,name).addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).allowMainThreadQueries().build()
         var disk=open();val original=session("synthetic-persistent",BreastfeedingStatus.YES)
         try {
             Repository(disk).saveSession(original);disk.close();disk=open()

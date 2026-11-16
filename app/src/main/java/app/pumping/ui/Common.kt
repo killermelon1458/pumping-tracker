@@ -105,6 +105,7 @@ fun Field(
     modifier: Modifier = Modifier,
     lines: Int = 1,
     onCommit: (() -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     var hadFocus by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -115,6 +116,7 @@ fun Field(
             hadFocus = it.isFocused
         },
         label = { Text(label) },
+        enabled = enabled,
         singleLine = lines == 1,
         minLines = lines,
         shape = RoundedCornerShape(18.dp),
@@ -127,7 +129,7 @@ fun Field(
 }
 
 @Composable
-fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, detail: String? = null) {
+fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, detail: String? = null, enabled: Boolean = true) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label)
@@ -138,7 +140,7 @@ fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, detail:
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
         }
-        Switch(checked, onChange, Modifier.testTag(label))
+        Switch(checked, onChange, Modifier.testTag(label), enabled = enabled)
     }
 }
 
@@ -150,9 +152,10 @@ fun Choices(values: List<String>, selected: String, change: (String) -> Unit) {
 }
 
 @Composable
-fun Timestamp(label: String, value: Long, s: Settings, change: (Long) -> Unit) {
+fun Timestamp(label: String, value: Long, s: Settings, enabled: Boolean = true, change: (Long) -> Unit) {
     val context = LocalContext.current
     TextButton(
+        enabled = enabled,
         onClick = {
             val z = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
             DatePickerDialog(

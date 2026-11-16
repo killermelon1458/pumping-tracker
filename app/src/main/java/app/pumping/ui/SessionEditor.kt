@@ -45,33 +45,73 @@ fun SessionEditor(
         )
     }
     var end by rememberSaveable { mutableLongStateOf(existing?.end ?: initialEnd) }
-    var duration by rememberSaveable { mutableStateOf((initialSeconds / 60.0).toString()) }
+    var duration by rememberSaveable { mutableStateOf(durationMinutes(initialSeconds)) }
     var committedSeconds by rememberSaveable { mutableLongStateOf(initialSeconds) }
-    val linkedTiming = timer == null && existing?.mode != "TIMER"
+    var powerName by rememberSaveable { mutableStateOf((existing?.powerStatus ?: PowerPumpStatus.NORMAL).name) }
+    var elapsedKnown by rememberSaveable { mutableStateOf(existing?.elapsedKnown ?: true) }
+    var phaseInputs by rememberSaveable(stateSaver = PhaseInputSaver) { mutableStateOf(emptyList<PhaseInput>()) }
+    var phaseLoaded by rememberSaveable { mutableStateOf(existing == null) }
+    var phaseActive by rememberSaveable { mutableLongStateOf(initialSeconds) }
+    var routineEstablished by rememberSaveable { mutableStateOf(false) }
+    var lastTimestamp by rememberSaveable { mutableStateOf("END") }
+    var timerRemainder by rememberSaveable { mutableLongStateOf(if (timer != null || existing?.mode == "TIMER") (end - start) % 1000 else 0) }
+    var pendingPhases by remember { mutableStateOf<List<PhaseInput>?>(null) }
+    var timingExpanded by rememberSaveable { mutableStateOf(false) }
+    var pendingPowerName by remember { mutableStateOf<String?>(null) }
+    val timedSession = timer != null || existing?.mode == "TIMER"
+    LaunchedEffect(existing?.id) {
+        if (!phaseLoaded) {
+            val saved = vm.repo.dao.phases(requireNotNull(existing).id)
+            phaseInputs = saved.map { it.input() }
+            if (saved.isNotEmpty()) {
+                val totals = phaseTotals(saved)
+                committedSeconds = totals.elapsed
+                duration = durationMinutes(totals.elapsed)
+                phaseActive = totals.active
+                routineEstablished = true
+
+            }
+            phaseLoaded = true
+        }
+    }
+    val hasDetails = phaseInputs.isNotEmpty()
+    val separateActiveSpan = !hasDetails && elapsedKnown && end - start > committedSeconds * 1000
     var historyNames by rememberSaveable { mutableStateOf(listOf("END", "DURATION")) }
-    var durationDirty by rememberSaveable { mutableStateOf(false) }
     var timingError by rememberSaveable { mutableStateOf<String?>(null) }
     var futureWarning by rememberSaveable { mutableStateOf(false) }
-    fun commitTime(field: TimeField, value: Long): Boolean {
+    fun commitTime(field: TimeField, value: Long, preserveDurationDraft: Boolean = false): Boolean {
+        val unchanged = when (field) {
+            TimeField.START -> value == start
+            TimeField.END -> value == end
+            TimeField.DURATION -> value == committedSeconds
+        }
+        if (unchanged) {
+            timingError = null
+            return true
+        }
         return try {
-            if (linkedTiming) {
-                val next = QuickLogTiming(start, end, committedSeconds,
-                    historyNames.map(TimeField::valueOf)).edit(field, value)
-                committedSeconds = next.seconds
-                start = next.start
-                end = next.end
-                duration = (next.seconds / 60.0).toString()
+            if (phaseInputs.isNotEmpty()) {
+                val elapsed = Math.addExact(Math.multiplyExact(phaseTotals(phaseInputs.records(draftId)).elapsed, 1000), timerRemainder)
+                val next = RoutineTiming(start, end, TimeField.valueOf(lastTimestamp)).edit(field, value, elapsed)
+                start = next.start; end = next.end
+                lastTimestamp = next.timestamp.name
+                historyNames = (historyNames.filterNot { it == field.name } + field.name).takeLast(2)
+            } else if (!timedSession) {
+                val next = QuickLogTiming(start, end, committedSeconds, historyNames.map(TimeField::valueOf)).edit(field, value)
+                start = next.start; end = next.end; committedSeconds = next.seconds
+                if (!preserveDurationDraft) duration = durationMinutes(next.seconds)
                 historyNames = next.history.map { it.name }
+                if (field != TimeField.DURATION) lastTimestamp = field.name
+                if (powerName == PowerPumpStatus.POWER.name || !elapsedKnown) elapsedKnown = false
             } else {
-                // Timed sessions retain active time independently of their paused wall-clock span.
+                // Preserve separately recorded timer pauses and active time in basic mode.
                 when (field) {
-                    TimeField.START -> start = value
-                    TimeField.END -> end = value
-                    TimeField.DURATION -> { duration = (value / 60.0).toString(); end = start + value * 1000 }
+                    TimeField.START -> { start = value; lastTimestamp = field.name }
+                    TimeField.END -> { end = value; lastTimestamp = field.name }
+                    TimeField.DURATION -> { committedSeconds = value; if (!preserveDurationDraft) duration = durationMinutes(value) }
                 }
             }
-            if (!linkedTiming && field == TimeField.DURATION) committedSeconds = value
-            durationDirty = false
+            if (phaseInputs.isEmpty()) phaseActive = committedSeconds
             timingError = null
             true
         } catch (e: Exception) {
@@ -80,9 +120,57 @@ fun SessionEditor(
         }
     }
     fun commitDuration(): Boolean {
-        if (!durationDirty) return true
-        return try { commitTime(TimeField.DURATION, durationSeconds(duration)) }
+        // Validate the actual displayed draft even if focus/IME callbacks never happened.
+        return try { commitTime(TimeField.DURATION, durationSeconds(duration), preserveDurationDraft = true) }
         catch (e: Exception) { timingError = "Enter a valid positive duration"; false }
+    }
+    fun applyPhases(nextInputs: List<PhaseInput>): Boolean {
+        if (!commitDuration()) return false
+        if (nextInputs.isEmpty()) {
+            if (phaseInputs.isNotEmpty()) {
+                if (!timedSession) {
+                    val next = RoutineTiming(start, end, TimeField.valueOf(lastTimestamp)).resize(Math.multiplyExact(phaseActive, 1000))
+                    start = next.start; end = next.end; elapsedKnown = false
+                }
+                committedSeconds = phaseActive
+                duration = durationMinutes(phaseActive)
+            }
+            phaseInputs = emptyList()
+            timingError = null
+            return true
+        }
+        phaseInputs = nextInputs
+        return try {
+            val parsed = nextInputs.map { p -> if (p.dirty) {
+                val seconds = durationSeconds(p.text)
+                p.copy(seconds = seconds, dirty = false)
+            } else p }
+            phaseInputs = parsed
+            val total = phaseTotals(parsed.records(draftId))
+            if (timedSession && !routineEstablished) {
+                require(total.active == phaseActive && (end - start) / 1000 == total.elapsed) {
+                    "Intervals must match recorded timer active time and elapsed time."
+                }
+            }
+            val next = RoutineTiming(start, end, TimeField.valueOf(lastTimestamp))
+                .resize(Math.addExact(Math.multiplyExact(total.elapsed, 1000), timerRemainder))
+            start = next.start; end = next.end
+            committedSeconds = total.elapsed
+            duration = durationMinutes(total.elapsed)
+            phaseActive = total.active
+            elapsedKnown = true
+            routineEstablished = true
+
+            timingError = null
+            true
+        } catch (e: Exception) {
+            timingError = e.message ?: "Invalid timing intervals"
+            false
+        }
+    }
+    fun requestPhases(next: List<PhaseInput>) {
+        if (phaseInputs.any { old -> next.none { it.id == old.id } }) pendingPhases = next
+        else applyPhases(next)
     }
     var total by rememberSaveable {
         mutableStateOf(existing?.let { Volume.format(it.volume, inputUnit, 5) } ?: "")
@@ -106,6 +194,9 @@ fun SessionEditor(
         mutableLongStateOf(nextReminder(referenceAt(), s.reminderMinutes))
     }
     var customReminder by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(start, end, s.pumpReference, s.reminderMinutes) {
+        if (!customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+    }
     var allocationValues by rememberSaveable { mutableStateOf(listOf("")) }
     var allocationLocations by rememberSaveable { mutableStateOf(listOf("Fridge")) }
     var discard by remember { mutableStateOf(false) }
@@ -129,9 +220,12 @@ fun SessionEditor(
         vm.launch {
             busy = true
             try {
+                require(phaseInputs.isNotEmpty() || durationSeconds(duration) == committedSeconds) {
+                    "Duration and session timing are inconsistent. Review the duration before saving."
+                }
                 val amount = measured()
                 require(amount > 0 || zero) { "Enter output or select No milk expressed" }
-                val seconds = committedSeconds
+                val seconds = if (hasDetails) phaseTotals(phaseInputs.records(draftId)).active else committedSeconds
                 val session =
                     Session(
                         id = draftId,
@@ -145,6 +239,8 @@ fun SessionEditor(
                         right =
                             if (split && !zero) Volume.parse(right.ifBlank { "0" }, inputUnit)
                             else null,
+                        powerStatus = PowerPumpStatus.valueOf(powerName),
+                        elapsedKnown = if (existing == null && powerName == PowerPumpStatus.POWER.name && !timedSession && !hasDetails) false else elapsedKnown,
                         pumpProfileId = selectedPump,
                         breastfedBefore = BreastfeedingStatus.valueOf(breastfedBefore),
                         notes = notes,
@@ -161,7 +257,7 @@ fun SessionEditor(
                             )
                         }
                     else emptyList()
-                vm.save(session, allocations, if (reminder) remindAt else null)
+                vm.save(session, allocations, if (reminder) remindAt else null, phaseInputs.records(draftId))
                 vm.app.reminders.restore(vm.app)
                 close()
             } finally {
@@ -171,6 +267,7 @@ fun SessionEditor(
     }
     fun requestSave() {
         if (!commitDuration()) return
+        if (phaseInputs.isNotEmpty() && !applyPhases(phaseInputs)) return
         if (end <= start || committedSeconds <= 0 || committedSeconds > (end - start) / 1000) {
             timingError = "Active duration must fit inside start and end times"
             return
@@ -182,7 +279,7 @@ fun SessionEditor(
         if (existing == null) "Log Pump" else "Edit Pump",
         { discard = true },
         { requestSave() },
-        !busy && pumpInitialized && output != null && (output > 0 || zero),
+        !busy && pumpInitialized && phaseLoaded && output != null && (output > 0 || zero),
         inputUnit = inputUnit,
         unitEnabled = !busy,
         onUnitToggle = {
@@ -210,21 +307,39 @@ fun SessionEditor(
         },
     ) {
         CardBlock {
-            Field(
-                "Active duration (minutes)",
-                duration,
-                { v -> duration = v; durationDirty = true; timingError = null },
-                true,
-                onCommit = {
-                    if (commitDuration() && !customReminder)
-                        remindAt = nextReminder(referenceAt(), s.reminderMinutes)
-                },
-            )
-            Timestamp("Started", start, s) {
+            if (hasDetails) {
+                Text("Pumping time: ${pumpElapsedText(phaseActive * 1000)}")
+                Text("Total elapsed time: ${pumpElapsedText((end - start))}")
+                Text("Pumping time excludes rests; total elapsed time includes them.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Field(
+                    "Duration (minutes)",
+                    duration,
+                    { v ->
+                        if (v != duration) {
+                            // Preserve the user's exact text/cursor. Only valid values update timing.
+                            duration = v
+                            timingError = null
+                            runCatching { durationSeconds(v) }.getOrNull()?.let {
+                                commitTime(TimeField.DURATION, it, preserveDurationDraft = true)
+                            }
+                        }
+                    },
+                    true,
+                    onCommit = {
+                        if (commitDuration() && !customReminder)
+                            remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                    },
+                    enabled = phaseLoaded,
+                )
+            }
+            if (!hasDetails && ((!elapsedKnown) || (powerName == PowerPumpStatus.POWER.name && !timedSession))) Text("Duration is active pumping time; actual total elapsed time is not recorded.", style = MaterialTheme.typography.bodySmall)
+            else if (separateActiveSpan && (powerName != PowerPumpStatus.POWER.name || timedSession)) Text("Recorded elapsed: ${pumpElapsedText(end - start)}. Active time excludes breaks.")
+            Timestamp("Start", start, s, enabled = phaseLoaded) {
                 if (commitDuration() && commitTime(TimeField.START, it) && !customReminder)
                     remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }
-            Timestamp("Ended", end, s) {
+            Timestamp("End", end, s, enabled = phaseLoaded) {
                 if (commitDuration() && commitTime(TimeField.END, it) && !customReminder)
                     remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }
@@ -236,6 +351,32 @@ fun SessionEditor(
                 )
         }
         CardBlock {
+            Toggle("Power Pump", powerName == PowerPumpStatus.POWER.name, { enabled ->
+                val next = if (enabled) PowerPumpStatus.POWER.name else PowerPumpStatus.NORMAL.name
+                if (!enabled && phaseInputs.isNotEmpty()) { pendingPowerName = next; pendingPhases = emptyList() }
+                else {
+                    powerName = next
+
+                }
+            }, if (powerName == PowerPumpStatus.UNKNOWN.name) "Not specified for this historical record" else null, enabled = phaseLoaded)
+            if (existing != null && powerName != PowerPumpStatus.UNKNOWN.name) TextButton({
+                if (phaseInputs.isNotEmpty()) { pendingPowerName = PowerPumpStatus.UNKNOWN.name; pendingPhases = emptyList() } else powerName = PowerPumpStatus.UNKNOWN.name
+            }) { Text("Mode not specified") }
+            if (powerName == PowerPumpStatus.POWER.name) {
+                TextButton({ timingExpanded = !timingExpanded }, enabled = phaseLoaded) { Text(if (timingExpanded) "Hide timing details" else "Timing details (optional)") }
+                if (timingExpanded) {
+                    if (timedSession) Text("Intervals must match recorded timer active/elapsed totals; pauses will not be overwritten.")
+                    PowerTimingEditor(phaseInputs,
+                        input = { id, text -> phaseInputs = phaseInputs.map { if (it.id == id && it.text != text) it.copy(text = text, dirty = true) else it } },
+                        commit = { if (applyPhases(phaseInputs) && !customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes) },
+                        change = { requestPhases(it) },
+                        preset = { requestPhases(powerPreset(draftId).map { it.input() }) },
+                        firstPumpSeconds = if (hasDetails) phaseActive else committedSeconds,
+                    )
+                    timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+            HorizontalDivider()
             Text("Breastfed before pumping?", style = MaterialTheme.typography.titleMedium)
             Choices(BreastfeedingStatus.entries.map { it.displayLabel() },
                 BreastfeedingStatus.valueOf(breastfedBefore).displayLabel()) { label ->
@@ -350,9 +491,19 @@ fun SessionEditor(
                 Text("Delete session", color = MaterialTheme.colorScheme.error)
             }
         Text(
-            "Daily statistics use the session’s local start date.",
+            if (elapsedKnown) "Daily statistics use the session’s local start date."
+            else "Daily grouping uses the saved Start time; actual total elapsed time is not recorded.",
             style = MaterialTheme.typography.bodySmall,
         )
+    }
+    pendingPhases?.let { next ->
+        Confirm("Remove timing intervals?", "This removes interval information. Removing all intervals returns to active Duration and keeps your last edited time.",
+            { pendingPhases = null; pendingPowerName = null }, {
+                if (applyPhases(next)) {
+                    pendingPowerName?.let { powerName = it }
+                    pendingPhases = null; pendingPowerName = null
+                }
+            })
     }
     if (futureWarning)
         AlertDialog(

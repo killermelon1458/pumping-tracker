@@ -122,3 +122,13 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_pumpProfileId ON sessions(pumpProfileId)")
     }
 }
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sessions ADD COLUMN powerStatus TEXT NOT NULL DEFAULT 'UNKNOWN'")
+        db.execSQL("ALTER TABLE sessions ADD COLUMN elapsedKnown INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_powerStatus ON sessions(powerStatus)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS session_phases (id TEXT NOT NULL, sessionId TEXT NOT NULL, position INTEGER NOT NULL, kind TEXT NOT NULL, seconds INTEGER NOT NULL, PRIMARY KEY(id), FOREIGN KEY(sessionId) REFERENCES sessions(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_session_phases_sessionId_position ON session_phases(sessionId, position)")
+    }
+}

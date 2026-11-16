@@ -31,6 +31,8 @@ fun pumpElapsedText(milliseconds: Long): String {
 fun pumpNotificationText(sessions: List<Session>, reference: PumpReference, now: Long): String {
     val last = latestPump(sessions.filter { it.end <= now }) ?: return "No previous pump recorded."
     val at = pumpReferenceTime(last, reference) ?: return "Last pump time is unavailable."
+    if (!last.elapsedKnown)
+        return "Last pump ${reference.verb} ${pumpElapsedText(now - at)} ago · total elapsed time not recorded"
     return "Last pump ${reference.verb} ${pumpElapsedText(now - at)} ago"
 }
 

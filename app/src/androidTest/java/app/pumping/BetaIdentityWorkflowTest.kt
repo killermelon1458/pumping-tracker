@@ -2,6 +2,7 @@ package app.pumping
 
 import android.content.ComponentName
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
@@ -37,8 +38,8 @@ class BetaIdentityWorkflowTest {
         val app = app()
         assertEquals("dev.killermelon1458.pumping.debug", app.packageName)
         assertEquals(app.packageName, BuildConfig.APPLICATION_ID)
-        assertEquals("1.4.3-dev", BuildConfig.VERSION_NAME)
-        assertEquals(10, BuildConfig.VERSION_CODE)
+        assertEquals("1.4.6-dev", BuildConfig.VERSION_NAME)
+        assertEquals(13, BuildConfig.VERSION_CODE)
         assertEquals("Pumping Dev", app.getString(R.string.app_name))
         assertTrue(BuildConfig.DEBUG)
         assertEquals("app.pumping", MainActivity::class.java.`package`!!.name)
@@ -75,7 +76,8 @@ class BetaIdentityWorkflowTest {
         compose.waitForIdle()
         compose.onNodeWithText("Quick Log").performClick()
         compose.onNodeWithTag("Volume (oz)").performTextInput("3")
-        compose.onNodeWithTag("Stash It").performScrollTo().performClick()
+        compose.onNodeWithTag("Stash It").performScrollTo().performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.onNodeWithTag("Stash It").assertIsOn()
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(15000) {
             runBlocking { app().repository.dao.allSessions().size == 1 } &&
@@ -116,7 +118,7 @@ class BetaIdentityWorkflowTest {
             )
         fun database() =
             Room.databaseBuilder(app, PumpDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         var db = database()
         val other = Room.inMemoryDatabaseBuilder(app, PumpDatabase::class.java).build()

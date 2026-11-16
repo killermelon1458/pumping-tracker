@@ -85,7 +85,7 @@ class PumpProfilesTest {
         LegacyBackup(repo,store(repo)).let { it.import(it.prepare(fixture)) }
         assertEquals(activePump.id,repo.dao.session(iosSession.id)!!.pumpProfileId)
         repo.saveSession(session("removed"));repo.deleteSession("removed")
-        val text=backup(repo).export();assertEquals(3,JSONObject(text).getInt("version"))
+        val text=backup(repo).export();assertEquals(4,JSONObject(text).getInt("version"))
         val other=memory()
         try {
             val r=Repository(other);val b=backup(r);b.import(text);b.import(text)
@@ -100,8 +100,8 @@ class PumpProfilesTest {
     @Test fun v1AndV2RemainImportableWithoutInventingPumpAssignments()=runBlocking {
         repo.saveSession(session("old",status=BreastfeedingStatus.YES))
         for(version in listOf(1,2)) {
-            val root=JSONObject(backup(repo).export()).put("version",version);root.remove("pump_profiles")
-            val row=root.getJSONArray("sessions").getJSONObject(0);row.remove("pumpProfileId")
+            val root=JSONObject(backup(repo).export()).put("version",version);root.remove("pump_profiles");root.remove("session_phases")
+            val row=root.getJSONArray("sessions").getJSONObject(0);row.remove("pumpProfileId");row.remove("powerStatus");row.remove("elapsedKnown")
             if(version==1)row.remove("breastfedBefore")
             val other=memory()
             try {
@@ -117,7 +117,7 @@ class PumpProfilesTest {
         val p=PumpProfile(nickname="Synthetic pump");repo.savePumpProfile(p);repo.saveSession(session("one",p.id))
         val text=backup(repo).export()
         val invalid=listOf(
-            JSONObject(text).put("version",4),
+            JSONObject(text).put("version",5),
             JSONObject(text).apply{getJSONArray("pump_profiles").getJSONObject(0).put("unknownField","new")},
             JSONObject(text).apply{getJSONArray("pump_profiles").getJSONObject(0).put("type","FUTURE")},
             JSONObject(text).apply{getJSONArray("sessions").getJSONObject(0).put("pumpProfileId","missing")},
@@ -143,7 +143,7 @@ class PumpProfilesTest {
     @Test fun profilesAndLastUsedSurviveDiskReopen()=runBlocking {
         val name="synthetic-pump-reopen-${System.nanoTime()}.db"
         fun open()=Room.databaseBuilder(context,PumpDatabase::class.java,name)
-            .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5).allowMainThreadQueries().build()
+            .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).allowMainThreadQueries().build()
         var disk=open()
         val p=PumpProfile(nickname="Persistent pump",notes="Synthetic note")
         val s=session("persistent",p.id)

@@ -27,6 +27,7 @@ fun PumpScreen(
     log: () -> Unit,
     edit: (Session) -> Unit,
     stashedSessionIds: Set<String> = emptySet(),
+    detailedSessionIds: Set<String> = emptySet(),
 ) {
     val scroll = rememberLazyListState()
     LazyColumn(
@@ -106,9 +107,11 @@ fun PumpScreen(
                                 Row(
                                     Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
                                         clock(row.start, s),
+                                        modifier = Modifier.weight(1f),
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                     )
@@ -116,26 +119,25 @@ fun PumpScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        if (row.id in stashedSessionIds)
-                                            Icon(
-                                                Icons.Outlined.AcUnit,
-                                                "Stashed",
-                                                Modifier.size(18.dp).testTag("stashed-${row.id}"),
-                                                tint = Blue,
-                                            )
                                         Text(quantity(row.volume, s), fontWeight = FontWeight.Bold)
                                     }
                                 }
+                                SessionIndicators(row, row.id in stashedSessionIds)
                                 Text(
                                     "${row.activeSeconds/60} min ${row.activeSeconds%60}s",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                                if (row.powerStatus == PowerPumpStatus.POWER) {
+                                    Text(if (row.elapsedKnown && (row.mode == "TIMER" || row.id in detailedSessionIds)) "Power pump · elapsed ${pumpElapsedText(row.end - row.start)}"
+                                        else "Power pump · total elapsed time not recorded", style = MaterialTheme.typography.bodySmall)
+                                } else if (!row.elapsedKnown) Text("Total elapsed time not recorded", style = MaterialTheme.typography.bodySmall)
                                 val index = chronological.indexOfFirst { it.id == row.id }
                                 if (s.intervals && index > 0) {
                                     val delta =
                                         interval(chronological[index - 1], row, s.pumpReference)
                                     Text(
                                         if (delta < 0) "Overlaps previous session"
+                                        else if (!row.elapsedKnown || !chronological[index - 1].elapsedKnown) "${gap(delta)} between saved times"
                                         else "${gap(delta)} since last pump",
                                         style = MaterialTheme.typography.bodySmall,
                                     )

@@ -29,7 +29,9 @@ Version| Purpose
 1.4.2-dev| Breastfeeding context and persistence foundation
 1.4.3-dev| Pump profiles and breastfeeding label correction
 1.4.3-beta| Public beta containing the validated 1.4.3 changes
-1.4.4-dev| Further development
+1.4.4-dev| Power-pump tracking with optional intervals (UX rejected)
+1.4.5-dev| Stage 3 timing UX correction and history indicators (Duration regression found)
+1.4.6-dev| Immediate Quick Log Duration synchronization correction
 
 The historical "1.4.0-beta.1" release is grandfathered into the convention.
 
@@ -50,6 +52,8 @@ Version| Version code
 1.4.3-dev| 10
 1.4.3-beta| 10
 1.4.4-dev| 11
+1.4.5-dev| 12
+1.4.6-dev| 13
 
 Development and beta builds of the same revision may share a version code because their Android application IDs differ.
 
@@ -113,7 +117,7 @@ Stage development builds under:
 
 `dev-builds/VERSION/Pumping-VERSION.apk`
 
-For the current checkpoint: `dev-builds/1.4.2-dev/Pumping-1.4.2-dev.apk`.
+For the current checkpoint: `dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk`.
 
 Each development version directory retains its APK, checksum, automatic `.build.json` verification report, and `BUILD_INFO.md` with actual test results and limitations. `dev-builds/` is ignored by Git but remains available locally for Syncthing; ignoring a directory does not remove it or disable synchronization.
 

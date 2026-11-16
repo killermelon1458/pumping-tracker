@@ -96,6 +96,7 @@ fun DeleteRecordsDialog(
                                 "Pump kept: ${dateTime(it.start,s)} · ${quantity(it.volume,s)}. Other bags from this pump remain linked."
                             )
                         }
+                    if (p.deletedSession(related) != null) Text("Any timing intervals belonging to this pump session are also permanently removed.")
                     Text(
                         "Deletion is permanent and changes the affected totals. It does not record feeding, discard, donation or other milk use."
                     )

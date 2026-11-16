@@ -19,6 +19,7 @@ class PumpViewModel(application: Application) : AndroidViewModel(application) {
         repo.dao
             .sessions()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val detailedSessionIds = repo.dao.detailedSessionIds().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val pumps = repo.dao.pumpProfiles().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val bags =
         repo.dao
@@ -101,8 +102,8 @@ class PumpViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-    suspend fun save(s: Session, allocations: List<Allocation>, remindAt: Long?) {
-        repo.saveSession(s, allocations)
+    suspend fun save(s: Session, allocations: List<Allocation>, remindAt: Long?, phases: List<SessionPhase>? = null) {
+        repo.saveSession(s, allocations, phases)
         if (store.timer.first().id == s.id) {
             store.saveTimer(TimerState(targetMinutes = store.timer.first().targetMinutes))
             app.reminders.schedule("timer", 0)

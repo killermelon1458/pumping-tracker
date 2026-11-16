@@ -109,7 +109,7 @@ fun BackupControls(vm: PumpViewModel) {
                                     LegacyFormat.parseJson(selected)
                                 }
                             require(
-                                root.opt("format") == "Pumping" && root.optInt("version") in 1..3
+                                root.opt("format") == "Pumping" && root.optInt("version") in 1..4
                             ) {
                                 "Not a supported native Pumping backup. Original iPhone backups must use the .pumping envelope."
                             }

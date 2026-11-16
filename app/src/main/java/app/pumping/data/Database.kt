@@ -8,7 +8,7 @@ fun newId(): String = UUID.randomUUID().toString()
 
 enum class BreastfeedingStatus { YES, NO, UNKNOWN }
 
-@Entity(tableName = "sessions", indices = [Index("pumpProfileId")], foreignKeys = [
+@Entity(tableName = "sessions", indices = [Index("pumpProfileId"), Index("powerStatus")], foreignKeys = [
     ForeignKey(entity = PumpProfile::class, parentColumns = ["id"], childColumns = ["pumpProfileId"], onDelete = ForeignKey.RESTRICT)
 ])
 data class Session(
@@ -26,6 +26,8 @@ data class Session(
     @ColumnInfo(defaultValue = "'UNKNOWN'")
     val breastfedBefore: BreastfeedingStatus = BreastfeedingStatus.UNKNOWN,
     @ColumnInfo(defaultValue = "NULL") val pumpProfileId: String? = null,
+    @ColumnInfo(defaultValue = "'UNKNOWN'") val powerStatus: PowerPumpStatus = PowerPumpStatus.UNKNOWN,
+    @ColumnInfo(defaultValue = "1") val elapsedKnown: Boolean = true,
 )
 
 @Entity(
@@ -80,6 +82,12 @@ data class BagBalance(@Embedded val bag: Bag, val remaining: Long)
 
 @Dao
 interface PumpDao {
+    @Query("SELECT DISTINCT sessionId FROM session_phases") fun detailedSessionIds(): Flow<List<String>>
+    @Query("SELECT * FROM session_phases ORDER BY sessionId, position") suspend fun allPhases(): List<SessionPhase>
+    @Query("SELECT * FROM session_phases WHERE sessionId = :id ORDER BY position") suspend fun phases(id: String): List<SessionPhase>
+    @Query("DELETE FROM session_phases WHERE sessionId = :id") suspend fun deletePhases(id: String)
+    @Insert suspend fun insertPhase(phase: SessionPhase)
+
     @Query("SELECT * FROM pump_profiles ORDER BY archived, nickname, id") fun pumpProfiles(): Flow<List<PumpProfile>>
     @Query("SELECT * FROM pump_profiles ORDER BY archived, nickname, id") suspend fun allPumpProfiles(): List<PumpProfile>
     @Query("SELECT * FROM pump_profiles WHERE id = :id") suspend fun pumpProfile(id: String): PumpProfile?
@@ -189,6 +197,7 @@ interface PumpDao {
 @Database(
     entities =
         [
+            SessionPhase::class,
             PumpProfile::class,
             Session::class,
             Bag::class,
@@ -198,7 +207,7 @@ interface PumpDao {
             LegacyPreferences::class,
             DeletionMarker::class,
         ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class PumpDatabase : RoomDatabase() {

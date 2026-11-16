@@ -75,4 +75,24 @@ class QuickLogTimingTest {
         assertEquals(1234,durationSeconds("20.57"))
         assertEquals(75,durationSeconds("1.25"))
     }
+    @Test fun editableMinuteFormattingRoundTripsWholeSecondsExactly() {
+        for(seconds in listOf(1L,2L,29L,59L,60L,61L,1234L,1235L,3599L,3601L,Int.MAX_VALUE.toLong(),Long.MAX_VALUE/1000,Long.MAX_VALUE)) {
+            assertEquals(seconds,durationSeconds(durationMinutes(seconds)))
+        }
+        assertEquals("20.0",durationMinutes(1200))
+        assertEquals("20.566666667",durationMinutes(1234))
+    }
+    @Test fun repeatedValidDraftValuesKeepOnlyManualDurationAuthority() {
+        val started=initial().edit(TimeField.START,end-1800000)
+        var current=started
+        for(text in listOf("4","40","40.","40.50","25.50")) {
+            current=current.edit(TimeField.DURATION,durationSeconds(text))
+            assertEquals(started.start,current.start)
+            assertEquals(listOf(TimeField.START,TimeField.DURATION),current.history)
+        }
+        val saved=current
+        for(text in listOf("", ".", "-", "1e")) assertTrue(runCatching{durationSeconds(text)}.isFailure)
+        assertEquals(saved,current)
+    }
+
 }

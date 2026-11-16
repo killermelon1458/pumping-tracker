@@ -1,8 +1,8 @@
 # Pumping — Next Beta Feature Plan
 
-**Status:** Stage 1 accepted on physical device. Stage 2 implemented and verified, awaiting owner device feedback. Stages 3–4 remain unimplemented.
+**Status:** Stage 1 accepted; Stage 2 baseline `v1.4.3-dev` (`c1e613a`). Stage 3 1.4.4-dev failed owner physical-device UX acceptance. The 1.4.5-dev correction exposed a physical-device duration synchronization regression. The owner physically tested and accepted 1.4.6-dev/code 13 on 16 November 2026, completing Stage 3. Stage 4 remains unauthorized.
 **Current public baseline:** `1.4.0-beta.1` (`versionCode 7`).
-**Development baseline:** Quick Log authority-tracking UX is implemented in `1.4.1-dev` (per local Codex report).
+**Development baseline:** Stage 2 `1.4.3-dev` / code 10, commit `c1e613a`; Quick Log authority UX from `1.4.1-dev` is retained.
 **Location in repository:** `docs/NEXT_BETA_PLAN.md`.
 **Related policy:** `docs/VERSIONING.md` and root `AGENTS.md` take precedence for release/version/artifact conventions.
 
@@ -112,7 +112,7 @@ Choose the simplest defensible Room representation, including nullable foreign k
 
 - Whether a future optional field records left/right/both breastfeeding and/or feed-end time. Keep it optional; do not build unsolicited screens in Stage 1.
 - Whether pump-profile statistics group by a profile's current metadata or a historical metadata snapshot after edits. Choose and document a consistent policy.
-- Exact handling of power-pump timing when rests are unknown, accounting for existing activeSeconds <= end-start constraints; do not infer unrecorded rests.
+- Power-pump unknown-rest timing and editor authority are resolved by the latest approved Stage 3 correction below: nominal basic timing with ordinary controls, separate detailed timestamp authority, and no inferred rests.
 - Which exact legacy session shapes can be exported without compromising timestamps, quantities, or inventory integrity.
 
 
@@ -203,3 +203,140 @@ Final Stage 2 verification and handoff:
 - Actual final-APK upgrade/coexistence evidence: `dev-builds/1.4.3-dev/stage2-device-check.json` (synthetic emulator data only; no reset/uninstall or production-device access). Old `UNKNOWN` remains the exact database value while its label is Not specified. Selecting a pump changed only its association and normal edit timestamp, not recorded quantities/timing/context/notes/inventory.
 - APK: `dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk`, identical explicitly requested copy `test-builds/Pumping-1.4.3-dev.apk`; version code 10; SHA-256 `d442bd87bdea1599c5e8707775f9cc51999d3851fdd44cdc0385d0b5ca3dc1c7`. Verified app ID `dev.killermelon1458.pumping.debug`, label Pumping Dev and standard debug certificate. Existing published 1.4.0-beta.1 asset unchanged.
 - No unresolved automated failures. Global case-insensitive nickname uniqueness (including archived profiles), conservative last-saved defaulting, and grouping by current profile descriptive metadata are intentional design choices for owner review. Physical-device Stage 2 feedback remains pending. STOP before Stage 3/4; no commit, tag, push or production signing/publication performed.
+
+
+## Stage 3 implementation record (1.4.4-dev / code 11 — superseded UX)
+
+**Historical record only:** The owner rejected this build on physical-device UX review. The approved 1.4.5 correction below supersedes conflicting timing, anchor-label, removal and acceptance decisions in this section.
+
+Scope: **Stage 3 only**, based on committed/tagged Stage 2 `c1e613a`. Stage 4 filtering/comparisons and optional lossy legacy export are not implemented.
+
+### Timing and UI decisions
+
+- New Quick Log entries default to **Normal**. Existing/migrated/native-v1–v3/iOS records remain internal `UNKNOWN` (shown as Not specified) until explicitly classified. A single Power Pump switch marks the parent; optional Timing details starts collapsed and the preset is applied only by its button. Existing records can explicitly return to Not specified.
+- A new manual toggle-only power pump records **known active duration**. `elapsedKnown=false` makes its `end-start == activeSeconds*1000` window a pair of active-time anchors, not an independently measured elapsed span. Editor/history/notification wording identifies anchors and does not invent breaks. Existing known timestamps and timer spans stay known when classified. Removing details preserves known active time and the recorded span, with confirmation before discarding interval rows.
+- With details, ordered contiguous Pump/Rest durations determine both totals: Pump sum = activeSeconds, all intervals = elapsed. One parent owns the total volume, stash links and statistics contribution. The explicit 20/10/10/10/10 preset produces 40 active and 60 elapsed minutes. Add/remove/reorder/kind/duration changes preserve interval IDs. Durations use the existing whole-second precision, not per-phase volumes.
+- Ordinary manual Quick Log retains the existing `[End, Duration]` last-two-distinct-edits state machine, intermediate typing handling and future-end Save confirmation. For detailed routines the duration summary is read-only; changing interval totals commits a Duration edit through that same state machine and preserves the last timestamp authority. Timestamp edits must preserve the explicit routine's total span; inconsistent edits show an error rather than scaling/fabricating intervals. Reordering or changing kind without changing elapsed duration does not retime the session or alter authority.
+- Timer clocks/recovery are unchanged. Editing a paused session retains its separately recorded wall-clock span rather than replacing it with active duration. Optional timer details must match the already recorded active time and elapsed span; a preset cannot overwrite recorded pauses. Timer timestamps retain their original millisecond precision; interval durations are whole seconds, so a recorded trailing fraction below one second remains at the final derived boundary. No timer pause information is discarded.
+- Midnight/date transitions use epoch-millisecond arithmetic; no local-time subtraction is used. Intervals have no gaps/overlap because boundaries derive contiguously from the parent start. No speculative exact-boundary editor was added.
+
+### Persistence and backup decisions
+
+- Room **5→6** adds session `powerStatus` (default `UNKNOWN`) and `elapsedKnown` (default true), plus `session_phases` with stable text IDs, parent FK **ON DELETE CASCADE**, unique `(sessionId, position)`, Pump/Rest kind and whole-second duration. Classification has an index for later combined filters. All existing records, profile/context values, IDs, timestamps, quantities, inventory ledger, deletion markers, retained iOS data and settings remain intact. All earlier migrations are retained; no destructive fallback.
+- Repository writes validate parent/phase totals, positive durations, contiguous positions, IDs, at least one Pump interval, overflow and ownership inside a Room transaction. Deleting the parent removes children atomically and retains existing stash-deletion choices. Phases never become independent sessions or inventory transactions.
+- Native JSON **v4** preserves classification, elapsed marker, every phase, all profiles/context and prior records. Native **v1/v2/v3** imports retain their previous semantics and initialize power status Unknown with no inferred phases. Older readers reject v4 rather than silently losing metadata. Invalid references/order/totals/flags, fractional seconds, duplicate IDs, future fields/versions and conflicts reject without partial imports.
+- Repeated matching imports remain idempotent. Session deletion tombstones also suppress its children. Existing sessions require an exact matching phase list during merge: stale backups cannot resurrect removed intervals or silently change their order. Restore a differing snapshot to an empty installation or use the existing deliberate replacement workflow where supported.
+- Original iOS decoding/import and retained source projections are unchanged. `.pumping` export continues to refuse unsupported metadata, now including any known power classification, unknown elapsed timing or phase rows, and recommends complete native JSON v4. Stage 4's confirmed lossy-export workflow is deliberately deferred.
+- Stable parent/profile IDs, indexed power classification, activeSeconds and existing context/time fields support future simultaneous filtering without implementing Stage 4 UI or multiplying counts/volumes.
+
+### Acceptance and verification
+
+- [x] Normal/default and historical Unknown classifications, toggle-only entry, optional preset, custom intervals and parent-only totals implemented.
+- [x] Room 5→6 non-destructive migration and previous migration chain verified; native v4 round-trip and v1/v2/v3 imports pass.
+- [x] Existing timing authority, future warning, paused timers, nursing context, profiles, reminders, stash, deletion and original iOS regressions pass in the unit suite.
+- [x] Actual canonical-APK Dev 1.4.3/schema 5 → 1.4.4/schema 6 upgrade preserves synthetic session/profile/context, stash/ledger, mL input and last-used selection without uninstall/reset. New preset and all saved records survive process restart. The old session remains Unknown with no inferred phases; production/Dev have distinct UIDs and separate records.
+- [x] Final full Compose/instrumentation rerun: **30 passed**, no failures/errors/skips, on disposable API 36.1. Source-only Git review checkpoint prepared after all checks.
+- [ ] Owner physical-device acceptance. STOP before Stage 4, commit/tag, production signing or publication.
+
+Final unit/build/lint checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:lintRelease --max-workers=1` passed; **273 unit tests**, including **12 migration cases across API 26/35**, and both lint variants with **0 errors / 20 existing warnings**. Python tooling suite: **13 passed**. Native v4 tests cover archived profiles, previous context, inventory/retained iOS/deletion data, stable phases, atomic rejection, matching repeated merge and stale phase-list conflicts. Repeating original-iOS merge preserves a locally recorded power classification.
+
+Live synthetic upgrade evidence: `dev-builds/1.4.4-dev/stage3-device-check.json`. APK `dev-builds/1.4.4-dev/Pumping-1.4.4-dev.apk`, code **11**, SHA-256 `0995c278d125626caaa04573e1ed1b3a288709bffd3a88b6171f11f4af1a894f`. aapt2 verifies Dev ID/label, API 26 minimum / 36 target / 37 compile; apksigner verifies the existing standard debug certificate. Published 1.4.0-beta.1 and retained Stage 2 APK checksums are unchanged. No personal records or backup fixtures are packaged.
+
+Owner review should cover active-time-anchor wording, fixed routine duration constraints and timer matching requirements. Emulator UI testing uses disposable API 36.1; API 26/35 persistence/migration coverage is Robolectric, not physical-device or API-26 emulator acceptance. Samsung notification/battery behavior and actual device UX remain physical-device checks. Stage 4's filtering/comparisons and optional lossy legacy export remain absent.
+
+
+Final Stage 3 UI verification: `./gradlew :app:connectedDebugAndroidTest :app:lintDebug --max-workers=1` **PASS**, all **30** tests (2m27s). Five new power-pump workflows cover toggle-only persistence/reopen, preset/custom durations/add/remove/reorder, invalid draft rejection, historical/paused timer editing with matching custom details, and confirmation before removing intervals. Earlier runs identified an ambiguous Cancel test selector and an existing stash touch-injection race; tests now exclude the editor header's Cancel and use/verify the stash switch's accessibility action. A timer draft active-total cache issue found during review was fixed and covered by the matching-details workflow. No remaining automated failures. Final APK bytes match the verified staged checksum; build/report/upgrade evidence remains local in its ignored version directory.
+
+Review checkpoint: 37 source/schema/test/documentation/configuration files staged; generated builds/reports, private references, real backups and signing material excluded. No commit/tag/push/publication or Stage 4 work. Suggested future checkpoint: `dev: 1.4.4-dev - Power pump tracking`, annotated tag `v1.4.4-dev` only after owner acceptance/authorization.
+
+
+## Stage 3 approved UX correction (1.4.5-dev / code 12)
+
+**Physical-device follow-up:** The approved basic/detailed semantics remain authoritative, but 1.4.5-dev failed Duration synchronization when focus/IME callbacks did not occur. The 1.4.6 record below supersedes deferred Duration commit behavior; the staged checkpoint remains uncommitted.
+
+**Authoritative decisions:** These owner-approved rules supersede earlier Stage 3 requirements and the rejected 1.4.4-dev UX. Implement this correction only; Stage 4 requires separate physical-device acceptance and authorization.
+
+### Basic mode
+
+- With no detailed intervals, Power Pump changes classification only. Start, End and Duration controls are identical with the switch on or off. Duration means active pumping minutes. The unchanged `QuickLogTiming` last-two-distinct-edits history initializes `[End, Duration]`; toggle/focus/recomposition never changes it. Example End 9:44, Duration 20→40 produces Start 9:04 in either classification.
+- No user-facing anchor terminology. Basic Power Pump does not require details or assume rests. Start–End is a nominal representation of active duration, not evidence of zero resting or actual overall elapsed time. Keep the existing internal `elapsedKnown` distinction; no migration or rewriting of saved timestamps for presentation.
+- Existing basic records open with saved values unchanged. Timed/paused records retain independently recorded active time and actual span, as in the existing timer editor, regardless of Power classification.
+
+### Detailed mode and transitions
+
+- Explicit interval entry activates detailed mode. Read-only **Pumping time** sums Pump durations; read-only **Total elapsed time** sums Pump + Rest. Do not show an editable basic Duration beside those totals. Optional details stay collapsed on a fresh opening. The optional 20/10/10/10/10 preset remains 40 pumping + 20 rest = 60 elapsed minutes, one parent session/volume.
+- `RoutineTiming` handles detailed timestamps independently of ordinary duration authority. A manual Start edit retains intervals and recalculates End; a manual End edit recalculates Start. Both are valid even when alternating. Do not scale Rest phases or reject a valid new timestamp because of the old span.
+- Track the most recently **manually** edited timestamp separately (default End). Interval duration changes and basic→detailed entry preserve that timestamp and calculate the other using total elapsed. They do not insert artificial Duration edits into ordinary edit history. Actual manual timestamp edits remain actual history edits; phase recalculations do not.
+- Removing all manual-session details returns to basic active Duration, retains the latest manually edited timestamp and calculates the other from active duration. Confirm any interval removal/replacement that discards draft or saved rows; Cancel leaves the routine unchanged. Classification changes that would clear intervals use the same confirmation. Hiding details never removes them.
+- Protect timer pause information: basic timer edits keep active time separate from actual recorded span. Initial details must account for recorded timer totals; existing detailed timer timestamp edits move the other endpoint and explicit interval edits use their supplied totals. Removing timer detail rows keeps its recorded active time and actual span rather than collapsing away pauses. Original timer millisecond precision is retained at the final phase boundary (whole-second interval precision).
+- Existing records are never retimed just by opening/saving. Activity recreation retains the draft's manual timestamp authority. Future-End Review/Save anyway behavior remains intact.
+
+### History and persistence
+
+- Small original scalable outline indicators: baby head with one hair for `breastfedBefore=YES`, breast pump for `powerStatus=POWER`, existing blue snowflake for a retained stash relationship. They can coexist on a compact separate indicator row, keeping timestamp and volume space free. Icons are non-interactive and have content descriptions; session details also explain the recorded context/mode.
+- Retain **Room schema 6** and **native JSON v4**, including v1/v2/v3 import support, stable IDs, phases, context, profile associations, deletion suppression and transactional validation. The nominal duration validator accepts the existing whole-second precision when timestamp milliseconds differ; it still rejects a nominal span inconsistent with active duration. No data rewrite, destructive migration or backup-field change.
+- Legacy `.pumping` format/import remains unchanged; unsafe metadata export remains blocked until Stage 4's explicit lossy workflow. Milk quantities, inventory and timer clock/recovery implementation remain unchanged.
+
+### Stage 4 metric definitions (data semantics only)
+
+- **Milk per pumping minute:** summed expressed milk divided by summed activeSeconds/60 for matching parent sessions.
+- **Milk per elapsed minute:** summed milk of eligible matching parent sessions divided by summed **known actual** elapsed minutes for those same sessions. Always show included/excluded sample counts. Do not use all-session milk over a subset's elapsed time.
+- Complete detailed phases establish elapsed time. Basic non-timer Power Pump nominal windows are excluded, including older ambiguous basic Power rows that retain `elapsedKnown=true`. Timers retain known actual elapsed time even when paused and without phase details. Ordinary records with known elapsed timing can contribute. Unknown actual elapsed is excluded rather than treated as zero.
+- `actualElapsedMillis` centralizes eligibility for later use; no Stage 4 statistics screen or comparison is implemented. Primary active-time calculations continue to use parent activeSeconds. Profile/mode/context/date filters remain independently composable; phases never add sessions or duplicate milk volumes.
+
+### Verification and acceptance
+
+Final results will be recorded after unit, migration/backup regression, emulator UI, Python tooling, debug/release lint and staged-APK upgrade checks. The retained 1.4.4-dev APK must remain byte-for-byte unchanged. Physical-device acceptance of this correction is pending; emulator results cannot establish that acceptance. No commit, tag, push, signing or publication is authorized by this correction.
+
+
+### Final 1.4.5-dev verification and review checkpoint
+
+- [x] Basic switch parity, ordinary last-two-edited-fields rules, explicit 9:44/20→40/9:04 example, repeated/alternating edits and absence of anchor terminology implemented/tested.
+- [x] Detailed read-only totals; optional 40 pumping / 20 rest / 60 elapsed preset; custom phase changes/add/remove/reorder; Start/End movement and last-manual-timestamp preservation; confirmation/Cancel and mode transitions verified.
+- [x] Existing basic/detailed records, no-op duration commits, paused timers, activity recreation, future-End confirmation, context/profiles, stash/deletion, reminders and old/native-v4 backup regressions verified.
+- [x] Baby-head/real pump outline/snowflake indicators tested in all 18 state combinations at 280 dp / 1.3× font scale; descriptions and no icon click action verified. Synthetic final-APK screenshot reviewed.
+- [x] `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:lintRelease --max-workers=1`: PASS (1m55s), **280 unit tests**, including **12 migration cases on API 26/35**, native v4 round-trip and v1/v2/v3 compatibility; debug/release lint each **0 errors / 20 existing warnings**. Python tooling: **13 passed**.
+- [x] `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest :app:lintDebug --max-workers=1`: PASS (2m57s), **36 tests**, no failures/errors/skips, disposable API 36.1. An earlier 35-case run also passed before final no-op/eligibility coverage.
+- [x] Real staged-APK **1.4.4-dev/code 11 → 1.4.5-dev/code 12** upgrade, schema 6 throughout, without uninstall/reset: every stored table identical immediately after upgrade. Reopening/saving basic and detailed records preserves values except normal updated metadata; phases/profile/context/stash/ledger and mL preference retained. Cold restart and independent production/Dev launch checks passed. Evidence: `dev-builds/1.4.5-dev/upgrade-device-check.json`.
+- [x] Staged APK SDK metadata and existing debug certificate verified. `dev-builds/1.4.5-dev/Pumping-1.4.5-dev.apk`, SHA-256 **`75d635786d1924643e36d49b334822dbc41daba5383e4209faa27f8f1a849ca0`**. Existing 1.4.4-dev and published 1.4.0-beta.1 APK checksums unchanged. No personal records or compatibility fixtures packaged.
+- [ ] Owner physical-device acceptance of this correction. Emulator/Robolectric results do not establish it. **STOP before Stage 4.**
+
+The cumulative Stage 3 source checkpoint is prepared for owner review from baseline `c1e613a`; the rejected 1.4.4 candidate was not committed/tagged by Codex. No commit, tag, push, publication or production signing performed. Local artifacts/reports remain ignored. See the version directory's BUILD_INFO.md and STAGED_FILES.md for final index verification/list. No unresolved automated failures; physical UX/device checks remain the owner gate.
+
+
+## Stage 3 Duration synchronization correction (1.4.6-dev / code 13)
+
+**Scope:** Correct the original Quick Log synchronization regression only. Keep the approved basic/detailed Stage 3 semantics and existing cumulative source checkpoint. No Stage 4, commit, tag, push or publication.
+
+### Confirmed cause and before evidence
+
+Before changing production code, two new actual Compose tests ran against 1.4.5 source on the disposable API 36.1 emulator. Both failed at the expected recalculated Start assertion. The switch test first asserted the displayed Duration was 40, Power Pump was on, and Duration still had focus. This reproduces the physical-device state transition rather than relying on a pure calculation test.
+
+`SessionEditor` updated only its editable Duration string and `durationDirty` flag in onValueChange. The canonical seconds/timestamps/history changed only through `Common.Field` onCommit, invoked on focus loss or IME Done. Touch-mode switches/chips need not take text-field focus; hiding the keyboard is also not a reliable focus change. Power Pump correctly changed classification only and therefore did not flush the deferred timing draft. The pure QuickLogTiming arithmetic was not the cause. Save attempted a fallback commit, but could not prevent a contradictory live display; final validation also depended on the deferred flag.
+
+Evidence retained locally: `dev-builds/1.4.6-dev/regression-before/` (2 failed UI tests, expected timing assertion), and `regression-after/` (the same two plus expanded interaction coverage, 13 passed).
+
+### Implementation decisions
+
+- Valid Duration text now calls the existing timing model synchronously in onValueChange. Basic manual Start/End/seconds/history remain authoritative and consistent for each valid edit. `QuickLogTiming` last-two-distinct-edits arithmetic and `[End, Duration]` initialization are unchanged; repeated Duration keystrokes remain repeated edits to that one field.
+- Keep a separate saveable raw text draft. Synchronizing timing never rewrites that draft, preserving decimal text, cursor and selection. Empty/incomplete/invalid numeric input does not enter the model. It remains visible for correction; Save rejects it instead of using the last valid duration. Use the existing BigDecimal parsing/whole-second precision (including valid `.5` and `40.` numeric forms), without inventing new input syntax.
+- Remove `durationDirty` as a source of truth. Focus/IME callbacks remain idempotent validation, not synchronization prerequisites. No forced focus clearing or keyboard dismissal, no polling/recomposition effects, no classification-toggle timing changes. Other Field consumers keep their existing behavior, including separately committed detailed phase inputs.
+- Save re-parses the actual displayed basic draft every time, reconciles it through the model, and checks displayed seconds against the authoritative seconds before persistence. Invalid text cannot silently fall back to stale model values.
+- Programmatic duration text uses decimal `durationMinutes`, rounded upward only at a fine decimal-minute representation so parsing at existing whole-second precision returns the original seconds exactly. This avoids a floating-point formatting/reparse hazard for values such as a paused timer's 1234 seconds. No saved timestamps or durations are normalized merely by opening/saving.
+- Timers keep independent active time and recorded paused span. Detailed power routines retain interval-derived active/elapsed totals and separate last-manual-timestamp authority. Icons, context/profile/stash relationships, reminders, quantities, database schema 6, native backup v4 and older/native/iOS compatibility remain unchanged.
+
+### Acceptance and verification
+
+- [x] Before fix: 2/2 actual Compose regression tests fail on 1.4.5, including retained focus after a Power switch tap.
+- [x] After fix: all 13 dedicated Compose duration tests pass, including immediate no-Done edit, switch/chip/profile/other text field/keyboard dismissal, already-Power/repeated toggles, manual Start/End authority, invalid drafts and Save, decimal text/caret/recreation, save/reopen, detailed phase calculations and paused-timer active edits.
+- [x] Final build/unit/lint: **282 unit tests passed**, including 12 migration cases across API 26/35; debug/release lint each **0 errors / 20 existing warnings**. `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:lintRelease --max-workers=1`: PASS (1m18s). Python tooling: **13 passed**.
+- [x] Final complete emulator suite: **49 passed**, no failures/errors/skips, disposable API 36.1; `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest :app:lintDebug --max-workers=1`: PASS (3m34s). Includes all 13 new Duration cases and all existing Stage 3/Quick Log/timer/backup/stash/context/profile/reminder workflows. Before-failure evidence is retained separately.
+- [x] Real staged-APK **1.4.5-dev/code 12 → 1.4.6-dev/code 13** update, Room 6 throughout, without uninstall/reset: every stored table identical immediately after upgrade. Reopening/saving basic and detailed sessions changes only normal updated metadata; phase IDs/order/totals, quantities, notes, profile/context, stash/ledger and mL preference retained. Cold restart and production/Dev coexistence passed. Evidence: `dev-builds/1.4.6-dev/upgrade-device-check.json`.
+- [x] APK metadata/signature/integrity verified: **dev.killermelon1458.pumping.debug**, label Pumping Dev, version **1.4.6-dev/code 13**, min/target/compile **26/36/37**, existing standard debug certificate. APK `dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk`, SHA-256 **`3439d663f9eb044015a9c5047e7fdddc26ce2c5c5620b3e655b682e156c0db67`**. Old 1.4.5-dev/1.4.4-dev/public beta APKs unchanged. No backup fixtures or synthetic test classes packaged.
+- [x] Cumulative Stage 3 source-only checkpoint prepared for review; generated/private artifacts excluded. Final staged list and cached whitespace/privacy audit are recorded in the version directory's STAGED_FILES.md. No commit/tag/push/publication.
+- [x] Owner physical-device testing and acceptance of **1.4.6-dev/code 13** confirmed on **16 November 2026**, completing Stage 3 including the Samsung no-Done synchronization correction. This is owner acceptance, separate from emulator verification. Stage 4 remains unauthorized.
+
+
+### Accepted Stage 3 Git checkpoint — 16 November 2026
+
+The owner accepted 1.4.6-dev/code 13 on a physical device and explicitly authorized one cumulative Stage 3 commit and annotated local tag `v1.4.6-dev`, with commit message `dev: 1.4.6-dev - Power pump tracking and timing fixes`. The previously staged 46-file source snapshot matched the retained 1.4.6 review patch digest and verified APK checksum before acceptance-only documentation was added. Recorded verification remains 282 unit / 49 emulator-Compose / 13 tooling tests passing and debug/release lint zero errors (20 existing warnings each). No new feature code is included in this checkpoint, no generated/private artifacts are tracked, and no push or publication is authorized. Subsequent UX work must be a separate development revision and must not be included in this accepted checkpoint.

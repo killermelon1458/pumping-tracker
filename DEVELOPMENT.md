@@ -2,7 +2,7 @@
 
 The authoritative policy is [docs/VERSIONING.md](docs/VERSIONING.md). Pumping uses **MAJOR.MINOR.REVISION** with a build-channel suffix. The third number is an intentional revision counter, not strict Semantic Versioning.
 
-The published `1.4.0-beta.1` (code 7) is historical and unchanged. Quick Log timing shipped in `1.4.1-dev` (code 8). Stage 1 `1.4.2-dev` (code 9) was accepted on device. Current Stage 2 is `1.4.3-dev` (code 10), adding pump profiles and native backup v3; see [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
+The published `1.4.0-beta.1` (code 7) is historical and unchanged. Quick Log timing shipped in `1.4.1-dev` (code 8). Stage 1 `1.4.2-dev` (code 9) was accepted on device. Stage 2 `1.4.3-dev` (code 10) added pump profiles and native backup v3. Current Stage 3 is `1.4.6-dev` (code 13), fixing immediate Quick Log Duration synchronization while retaining power-pump timing UX and history indicators while retaining schema 6/native backup v4; see [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
 
 ## Advance and promote
 
@@ -40,14 +40,14 @@ Use a disposable emulator for `./gradlew :app:connectedDebugAndroidTest`; instru
 Identical builds may be restaged; a different APK under an existing versioned filename fails without replacing it. Explicitly resolve/archive a candidate collision or advance the revision for changed distributable content. Keep previous versioned APKs. Tests are not invented by staging: retain commands/results in each development version directory's `BUILD_INFO.md` (release verification reports remain under `test-builds/`).
 
 ```bash
-adb install -r dev-builds/1.4.3-dev/Pumping-1.4.3-dev.apk
+adb install -r dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk
 ```
 
-Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.3-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. Preparing this convention does not authorize any release, tag, upload or publication.
+Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.6-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. Preparing this convention does not authorize any release, tag, upload or publication.
 
 
 ## Commit and tag checkpoints
 
 Each completed tested development milestone gets a version-identifying Git commit; each accepted milestone gets an annotated tag (for example `v1.4.2-dev`). Follow the authoritative policy for authorization: preparation/staging does not authorize committing, tagging, pushing or publishing. The first checkpoint includes the complete accumulated 1.4.2-dev state since the published baseline, not separate reconstructed 1.4.1/1.4.2 commits.
 
-Keep generated APKs, verification reports, private records and signing material out of Git. `dev-builds/` is locally retained and ignored, and remains available to Syncthing. Keep previous version directories and never overwrite an existing APK with different bytes. After owner review and authorized commit, record its exact commit ID in the local verification report before an accepted milestone is tagged. Stage 2 requires separate owner approval.
+Keep generated APKs, verification reports, private records and signing material out of Git. `dev-builds/` is locally retained and ignored, and remains available to Syncthing. Keep previous version directories and never overwrite an existing APK with different bytes. After owner review and authorized commit, record its exact commit ID in the local verification report before an accepted milestone is tagged. Each later milestone requires separate owner approval; Stage 4 is not authorized.

@@ -2,7 +2,7 @@
 
 ## Behavior
 
-Profile → Reminders → **Measure time between pumps from** controls Start of last pump (default) or End of last pump. This preference is independent of history's interval-visibility switch. It controls Last Pump, history intervals (current start minus the selected reference of the previous session), automatic deadlines, session-editor reminder defaults and notification wording. Both saved timestamps remain intact.
+Profile → Reminders → **Measure time between pumps from** controls Start of last pump (default) or End of last pump. This preference is independent of history's interval-visibility switch. It controls Last Pump, history intervals (current start minus the selected reference of the previous session), automatic deadlines, session-editor reminder defaults and notification wording. Both saved timestamps remain intact. Basic manual power pumps may have nominal timestamps with unrecorded overall elapsed timing. The normal Start/End reference still controls scheduling; notification text notes when actual total elapsed time is unrecorded. No resting duration is fabricated.
 
 The notification says **It's time to pump**, with delivery-time text such as **Last pump started 3h 20m ago** or **Last pump ended 3h ago**. Whole hours omit zero minutes; shorter intervals use minutes. With no completed pump it says **No previous pump recorded.** Invalid old timing has a safe unavailable-time message. Original iOS sessions missing `startTime` already derive start from end minus valid recorded duration during import; invalid timing rejects the import transaction with an error. The original `.pumping` format is unchanged.
 

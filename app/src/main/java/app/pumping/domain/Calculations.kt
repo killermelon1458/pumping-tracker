@@ -78,6 +78,9 @@ fun validateSession(s: Session) {
     require(s.activeSeconds > 0 && s.activeSeconds <= (s.end - s.start) / 1000) {
         "Active duration must fit inside start and end times"
     }
+    require(s.elapsedKnown || Math.subtractExact(s.end, s.start) / 1000 == s.activeSeconds) {
+        "Nominal timing must match the known active duration"
+    }
     require(s.volume in 0..Volume.MAX) { "Invalid volume" }
     require((s.left == null) == (s.right == null)) { "Both breast quantities are required" }
     if (s.left != null && s.right != null)

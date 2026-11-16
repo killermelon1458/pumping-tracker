@@ -25,12 +25,16 @@ class Repository(val db: PumpDatabase) {
         dao.lastSavedSession()?.pumpProfileId?.let { id -> dao.pumpProfile(id)?.takeUnless { it.archived }?.id }
     }
 
-    suspend fun saveSession(s: Session, bags: List<Allocation> = emptyList()) =
+    suspend fun saveSession(s: Session, bags: List<Allocation> = emptyList(), phases: List<SessionPhase>? = null) =
         db.withTransaction {
             require(!dao.isDeleted("session", s.id)) {
                 "This session was deleted. Create a new log instead."
             }
             validateSession(s)
+            val intervals = phases ?: dao.phases(s.id)
+            validateSessionPhases(s, intervals)
+            val owned = dao.allPhases().associateBy { it.id }
+            require(intervals.all { owned[it.id]?.sessionId?.let { parent -> parent == s.id } != false }) { "Interval IDs conflict with another session" }
             require(bags.all { it.volume > 0 }) { "Every bag needs a positive quantity" }
             val existing = dao.session(s.id)
             s.pumpProfileId?.let { id ->
@@ -42,6 +46,10 @@ class Repository(val db: PumpDatabase) {
                 "Stored allocations exceed measured output. Existing bags retain their recorded quantities."
             }
             if (existing == null) dao.insertSession(s) else dao.updateSession(s)
+            if (phases != null) {
+                dao.deletePhases(s.id)
+                intervals.forEach { dao.insertPhase(it) }
+            }
             for (a in bags) addBagInternal(a, s.end, s.id)
         }
 
