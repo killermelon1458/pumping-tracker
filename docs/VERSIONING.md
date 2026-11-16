@@ -31,7 +31,8 @@ Version| Purpose
 1.4.3-beta| Public beta containing the validated 1.4.3 changes
 1.4.4-dev| Power-pump tracking with optional intervals (UX rejected)
 1.4.5-dev| Stage 3 timing UX correction and history indicators (Duration regression found)
-1.4.6-dev| Immediate Quick Log Duration synchronization correction
+1.4.6-dev| Accepted Stage 3 checkpoint, including immediate Duration synchronization
+1.4.7-dev| Independent date/time controls, native time wheels and semantic discard detection
 
 The historical "1.4.0-beta.1" release is grandfathered into the convention.
 
@@ -54,6 +55,7 @@ Version| Version code
 1.4.4-dev| 11
 1.4.5-dev| 12
 1.4.6-dev| 13
+1.4.7-dev| 14
 
 Development and beta builds of the same revision may share a version code because their Android application IDs differ.
 
@@ -117,7 +119,7 @@ Stage development builds under:
 
 `dev-builds/VERSION/Pumping-VERSION.apk`
 
-For the current checkpoint: `dev-builds/1.4.6-dev/Pumping-1.4.6-dev.apk`.
+For the current checkpoint: `dev-builds/1.4.7-dev/Pumping-1.4.7-dev.apk`.
 
 Each development version directory retains its APK, checksum, automatic `.build.json` verification report, and `BUILD_INFO.md` with actual test results and limitations. `dev-builds/` is ignored by Git but remains available locally for Syncthing; ignoring a directory does not remove it or disable synchronization.
 
@@ -192,4 +194,4 @@ Development Git milestones
 6. Record the source commit or pre-commit working-tree state and exact APK SHA-256 in the local version directory's verification report. A pre-commit build must not falsely claim its changes belong to the current HEAD. After authorized commit, record the new commit/rebuild verification before tagging an accepted milestone.
 7. Preserve each versioned artifact: identical bytes may be restaged; do not overwrite an existing artifact with different bytes. Resolve a collision explicitly or advance the revision for changed distributable content. Keep historical APKs/reports where practical.
 
-For this preparation only, the suggested later commit is `Prepare Pumping 1.4.2-dev development checkpoint`, and the suggested annotated tag is `v1.4.2-dev`. Neither is created without separate owner authorization. Stage 2 remains gated by owner acceptance/approval.
+The accepted Stage 3 checkpoint is committed and annotated as `v1.4.6-dev`. The current `1.4.7-dev` UX milestone is prepared for review only; its commit/tag and Stage 4 remain subject to separate owner authorization.

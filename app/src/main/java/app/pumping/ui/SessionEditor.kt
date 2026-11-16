@@ -200,13 +200,16 @@ fun SessionEditor(
     var allocationValues by rememberSaveable { mutableStateOf(listOf("")) }
     var allocationLocations by rememberSaveable { mutableStateOf(listOf("Fridge")) }
     var discard by remember { mutableStateOf(false) }
+    var initialSnapshot by rememberSaveable { mutableStateOf<EditorSnapshot?>(null) }
+    var expandedTime by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    var existingAllocation by remember { mutableLongStateOf(0) }
+    var existingAllocation by rememberSaveable { mutableLongStateOf(0) }
+    var allocationLoaded by rememberSaveable { mutableStateOf(existing == null) }
     LaunchedEffect(existing?.id) {
         existing?.let { existingAllocation = vm.repo.dao.allocated(it.id) }
+        allocationLoaded = true
     }
-    BackHandler { discard = true }
     fun measured(): Long =
         if (zero) 0
         else if (split)
@@ -216,6 +219,44 @@ fun SessionEditor(
             )
         else Volume.parse(total, inputUnit)
     val output = runCatching { measured() }.getOrNull()
+    fun snapshot(): EditorSnapshot {
+        // Compare normalized authoritative inputs, projecting any pending valid phase edit.
+        var snapshotStart = start
+        var snapshotEnd = end
+        var snapshotSeconds = committedSeconds
+        var snapshotDuration = normalizedSeconds(duration)
+        if (phaseInputs.isNotEmpty()) runCatching {
+            val parsed = phaseInputs.map { it.copy(seconds = durationSeconds(it.text)) }.records(draftId)
+            val totals = phaseTotals(parsed)
+            val projected = RoutineTiming(start, end, TimeField.valueOf(lastTimestamp))
+                .resize(Math.addExact(Math.multiplyExact(totals.elapsed, 1000), timerRemainder))
+            snapshotStart = projected.start; snapshotEnd = projected.end
+            snapshotSeconds = totals.active; snapshotDuration = "derived:${totals.elapsed}"
+        }
+        val values = mutableListOf(snapshotStart.toString(), snapshotEnd.toString(), snapshotSeconds.toString(), snapshotDuration,
+            normalizedVolume(total, inputUnit), normalizedVolume(left, inputUnit), normalizedVolume(right, inputUnit),
+            split.toString(), zero.toString(), notes, breastfedBefore, selectedPump ?: "", powerName,
+            stash.toString(), reminder.toString())
+        // Default allocations/deadlines are derived, not independent edits. Keep hidden custom drafts.
+        val available = runCatching { measured() }.getOrNull()?.let { maxOf(0, it - existingAllocation) }
+        val defaultAllocation = allocationValues.size == 1 && allocationLocations == listOf("Fridge") &&
+            (allocationValues.single().isEmpty() || runCatching { Volume.parse(allocationValues.single(), inputUnit) == available }.getOrDefault(false))
+        values += if (defaultAllocation) listOf("default-allocation") else
+            allocationValues.mapIndexed { index, text -> "${allocationLocations[index]}:${normalizedVolume(text,inputUnit)}" }
+        values += if (!customReminder || remindAt / 60000 == nextReminder(referenceAt(), s.reminderMinutes) / 60000) "default-reminder" else "reminder:${remindAt / 60000}"
+        values += phaseInputs.map { "${it.kind.name}:${normalizedSeconds(it.text)}" }
+        return EditorSnapshot(values)
+    }
+    LaunchedEffect(pumpInitialized, phaseLoaded, allocationLoaded) {
+        if (initialSnapshot == null && pumpInitialized && phaseLoaded && allocationLoaded) initialSnapshot = snapshot()
+    }
+    fun requestClose() {
+        if (initialSnapshot == null || snapshot() == initialSnapshot) close() else discard = true
+    }
+    BackHandler {
+        if (expandedTime != null) expandedTime = null else requestClose()
+    }
+
     fun saveSession() {
         vm.launch {
             busy = true
@@ -277,11 +318,11 @@ fun SessionEditor(
     }
     EditorLayout(
         if (existing == null) "Log Pump" else "Edit Pump",
-        { discard = true },
+        { requestClose() },
         { requestSave() },
-        !busy && pumpInitialized && phaseLoaded && output != null && (output > 0 || zero),
+        !busy && expandedTime == null && initialSnapshot != null && pumpInitialized && phaseLoaded && output != null && (output > 0 || zero),
         inputUnit = inputUnit,
-        unitEnabled = !busy,
+        unitEnabled = !busy && initialSnapshot != null,
         onUnitToggle = {
             busy = true
             vm.launch {
@@ -306,6 +347,10 @@ fun SessionEditor(
             }
         },
     ) {
+        if (initialSnapshot == null) {
+            Text("Loading session…")
+            return@EditorLayout
+        }
         CardBlock {
             if (hasDetails) {
                 Text("Pumping time: ${pumpElapsedText(phaseActive * 1000)}")
@@ -335,11 +380,17 @@ fun SessionEditor(
             }
             if (!hasDetails && ((!elapsedKnown) || (powerName == PowerPumpStatus.POWER.name && !timedSession))) Text("Duration is active pumping time; actual total elapsed time is not recorded.", style = MaterialTheme.typography.bodySmall)
             else if (separateActiveSpan && (powerName != PowerPumpStatus.POWER.name || timedSession)) Text("Recorded elapsed: ${pumpElapsedText(end - start)}. Active time excludes breaks.")
-            Timestamp("Start", start, s, enabled = phaseLoaded) {
+            SessionTimestamp("Start", start, s, expandedTime == "Start", phaseLoaded,
+                openDate = { expandedTime = null },
+                openTime = { expandedTime = if (expandedTime == "Start") null else "Start" },
+                cancelTime = { expandedTime = null }) {
                 if (commitDuration() && commitTime(TimeField.START, it) && !customReminder)
                     remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }
-            Timestamp("End", end, s, enabled = phaseLoaded) {
+            SessionTimestamp("End", end, s, expandedTime == "End", phaseLoaded,
+                openDate = { expandedTime = null },
+                openTime = { expandedTime = if (expandedTime == "End") null else "End" },
+                cancelTime = { expandedTime = null }) {
                 if (commitDuration() && commitTime(TimeField.END, it) && !customReminder)
                     remindAt = nextReminder(referenceAt(), s.reminderMinutes)
             }

@@ -119,7 +119,7 @@ class PowerPumpWorkflowTest {
     }
     @Test fun basicToggleDoesNotMoveTimesAndFortyMinutesKeepsEnd() {
         compose.onNodeWithText("Quick Log").performClick()
-        fun text(prefix:String)=compose.onNodeWithText(prefix,substring=true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
+        fun text(prefix:String)=compose.onNodeWithTag("timestamp-${prefix.removeSuffix(":").lowercase()}").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription]
         val start=text("Start:");val end=text("End:")
         compose.onNodeWithTag("Power Pump").performScrollTo().performClick()
         assertEquals(start,text("Start:"));assertEquals(end,text("End:"))
@@ -149,21 +149,7 @@ class PowerPumpWorkflowTest {
         assertTrue(runBlocking{app().repository.dao.allPhases().isEmpty()})
     }
 
-    private fun chooseTime(label:String,hour:Int,minute:Int) {
-        compose.onNodeWithText("$label:",substring=true).performScrollTo().performClick()
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(android.R.id.button1))
-            .perform(androidx.test.espresso.action.ViewActions.click())
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(android.widget.TimePicker::class.java))
-            .perform(object:androidx.test.espresso.ViewAction {
-                override fun getConstraints():org.hamcrest.Matcher<android.view.View> = androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(android.widget.TimePicker::class.java)
-                override fun getDescription()="Set synthetic test time"
-                override fun perform(controller:androidx.test.espresso.UiController,view:android.view.View) {
-                    (view as android.widget.TimePicker).hour=hour;view.minute=minute;controller.loopMainThreadUntilIdle()
-                }
-            })
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(android.R.id.button1))
-            .perform(androidx.test.espresso.action.ViewActions.click())
-    }
+    private fun chooseTime(label:String,hour:Int,minute:Int) = chooseSessionTime(compose,label,hour,minute)
     @Test fun detailedTimeEditsMoveOtherEndpointAndPhaseEditsKeepLatestTimestamp() {
         val end=java.time.ZonedDateTime.now().minusDays(2).withHour(9).withMinute(44).withSecond(0).withNano(0).toInstant().toEpochMilli()
         val original=Session(id="detailed-edit",start=end-3600000,end=end,activeSeconds=2400,volume=30000,powerStatus=PowerPumpStatus.POWER,notes="Synthetic unchanged note")

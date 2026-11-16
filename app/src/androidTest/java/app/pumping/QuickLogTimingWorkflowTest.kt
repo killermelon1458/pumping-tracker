@@ -17,10 +17,10 @@ class QuickLogTimingWorkflowTest {
 
     @Test fun durationMovesStartImmediatelyAndDoneIsIdempotent() {
         compose.onNodeWithText("Quick Log").performClick()
-        val endText = compose.onNodeWithText("End:", substring=true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
+        val endText = compose.onNodeWithTag("timestamp-end").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription]
         compose.onNodeWithTag("Duration (minutes)").performTextReplacement("25")
         compose.onNodeWithTag("Duration (minutes)").performImeAction()
-        compose.onNodeWithText("End:", substring=true).assertTextContains(endText.removePrefix("[").removeSuffix("]"))
+        compose.onNodeWithTag("timestamp-end").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription,endText))
         compose.onNodeWithTag("Volume (oz)").performTextInput("1")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(10000) { runBlocking { app().repository.dao.allSessions().isNotEmpty() } }

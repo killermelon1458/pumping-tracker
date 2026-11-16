@@ -19,12 +19,12 @@ class DurationSynchronizationWorkflowTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private fun app()=compose.activity.application as SyntheticTestApplication
     @Before fun reset()=runBlocking { app().db.clearAllTables();app().settings.string("unit","oz");app().settings.bool("24h",false) }
-    private fun label(name:String)=compose.onNodeWithText("$name:",substring=true).fetchSemanticsNode().config[SemanticsProperties.Text].single().text
+    private fun label(name:String)="$name: " + compose.onNodeWithTag("timestamp-${name.lowercase()}").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
     private fun timestamp(name:String):Long = LocalDateTime.parse(label(name).substringAfter(": "),DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a")).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     private fun duration()=compose.onNodeWithTag("Duration (minutes)")
     private fun assertTimes(start:Long,end:Long) {
-        compose.onNodeWithText("Start: ${dateTime(start,Settings())}").assertExists()
-        compose.onNodeWithText("End: ${dateTime(end,Settings())}").assertExists()
+        compose.onNodeWithTag("timestamp-start").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription,dateTime(start,Settings())))
+        compose.onNodeWithTag("timestamp-end").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription,dateTime(end,Settings())))
     }
     @Test fun validDurationSynchronizesImmediatelyWithoutDone() {
         compose.onNodeWithText("Quick Log").performClick()
@@ -91,18 +91,7 @@ class DurationSynchronizationWorkflowTest {
         compose.onNodeWithTag("Power Pump").performScrollTo().performClick()
         replace("40");assertTimes(end-2400000,end)
     }
-    private fun chooseTime(label:String,hour:Int,minute:Int) {
-        compose.onNodeWithText("$label:",substring=true).performScrollTo().performClick()
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(android.R.id.button1)).perform(androidx.test.espresso.action.ViewActions.click())
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(android.widget.TimePicker::class.java)).perform(object:androidx.test.espresso.ViewAction {
-            override fun getConstraints():org.hamcrest.Matcher<android.view.View> = androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(android.widget.TimePicker::class.java)
-            override fun getDescription()="Set synthetic duration test time"
-            override fun perform(controller:androidx.test.espresso.UiController,view:android.view.View) {
-                (view as android.widget.TimePicker).hour=hour;view.minute=minute;controller.loopMainThreadUntilIdle()
-            }
-        })
-        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withId(android.R.id.button1)).perform(androidx.test.espresso.action.ViewActions.click())
-    }
+    private fun chooseTime(label:String,hour:Int,minute:Int) = chooseSessionTime(compose,label,hour,minute)
     @Test fun liveDurationRetainsTheMostRecentlyEditedStartThenEnd() {
         val old=seed();val day=Instant.ofEpochMilli(old.end).atZone(ZoneId.systemDefault())
         val start=day.withHour(12).withMinute(0).toInstant().toEpochMilli()

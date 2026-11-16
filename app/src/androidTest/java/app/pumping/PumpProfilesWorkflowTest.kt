@@ -109,7 +109,7 @@ class PumpProfilesWorkflowTest {
         compose.onNodeWithText("Quick Log").performClick()
         compose.onNodeWithTag("pump-selector").performScrollTo().assertTextContains("Unspecified")
         compose.onNodeWithText("Not specified",substring=false).assertIsSelected()
-        compose.onNodeWithText("Cancel",substring=false).performClick();compose.onNodeWithText("Confirm",substring=false).performClick();closed()
+        compose.onNodeWithText("Cancel",substring=false).performClick();closed()
         editSession(old.id)
         compose.onNodeWithTag("pump-selector").performScrollTo().assertTextContains("Unspecified")
         compose.onNodeWithText("Save").performClick();closed()

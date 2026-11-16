@@ -177,7 +177,6 @@ class UnitsAndIndicatorsWorkflowTest {
         compose.onNodeWithText("Quick Log").performClick()
         compose.onNodeWithTag("Volume (mL)").assertExists()
         compose.onNodeWithText("Cancel").performClick()
-        compose.onNodeWithText("Confirm").performClick()
         compose.onNodeWithText("Profile").performClick()
         scroll(hasText("Input Units"))
         compose.onNode(hasText("mL") and hasAnyAncestor(hasTestTag("display-units"))).performClick()

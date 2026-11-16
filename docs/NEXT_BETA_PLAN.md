@@ -2,7 +2,7 @@
 
 **Status:** Stage 1 accepted; Stage 2 baseline `v1.4.3-dev` (`c1e613a`). Stage 3 1.4.4-dev failed owner physical-device UX acceptance. The 1.4.5-dev correction exposed a physical-device duration synchronization regression. The owner physically tested and accepted 1.4.6-dev/code 13 on 16 November 2026, completing Stage 3. Stage 4 remains unauthorized.
 **Current public baseline:** `1.4.0-beta.1` (`versionCode 7`).
-**Development baseline:** Stage 2 `1.4.3-dev` / code 10, commit `c1e613a`; Quick Log authority UX from `1.4.1-dev` is retained.
+**Development baseline:** Accepted Stage 3 `1.4.6-dev` / code 13, commit `d08e865`, annotated local tag `v1.4.6-dev`. Current additional UX milestone: `1.4.7-dev` / code 14; Stage 4 remains unauthorized.
 **Location in repository:** `docs/NEXT_BETA_PLAN.md`.
 **Related policy:** `docs/VERSIONING.md` and root `AGENTS.md` take precedence for release/version/artifact conventions.
 
@@ -340,3 +340,45 @@ Evidence retained locally: `dev-builds/1.4.6-dev/regression-before/` (2 failed U
 ### Accepted Stage 3 Git checkpoint — 16 November 2026
 
 The owner accepted 1.4.6-dev/code 13 on a physical device and explicitly authorized one cumulative Stage 3 commit and annotated local tag `v1.4.6-dev`, with commit message `dev: 1.4.6-dev - Power pump tracking and timing fixes`. The previously staged 46-file source snapshot matched the retained 1.4.6 review patch digest and verified APK checksum before acceptance-only documentation was added. Recorded verification remains 282 unit / 49 emulator-Compose / 13 tooling tests passing and debug/release lint zero errors (20 existing warnings each). No new feature code is included in this checkpoint, no generated/private artifacts are tracked, and no push or publication is authorized. Subsequent UX work must be a separate development revision and must not be included in this accepted checkpoint.
+
+
+## Additional UX milestone — 1.4.7-dev / code 14
+
+**Scope:** Owner-authorized Quick Log usability work after accepted Stage 3. This is separate from Stage 4; statistics and legacy-export changes remain unauthorized.
+
+### Accepted baseline checkpoint
+
+Part 1 was completed before any 1.4.7 feature edits: committed accepted 1.4.6-dev/code 13 as **`d08e8653b653ef0edbec5cc32cb563c268b6b082`**, message **`dev: 1.4.6-dev - Power pump tracking and timing fixes`**. Annotated local tag **`v1.4.6-dev`** resolves to that exact new commit (parent `c1e613a`), not the previous checkpoint. Its source version is still 1.4.6/code 13. The 46-file staged snapshot matched the prior reviewed patch digest and APK checksum; only owner-acceptance documentation was added. No push, release or upload. New 1.4.7 work is not part of that commit/tag.
+
+### Independent date/time controls
+
+- Start and End retain their compact timestamp presentation but date and time are separate 48 dp-minimum touch targets. Date opens the existing calendar **only**; time opens the new wheel **only**. This applies to new and existing session editors. Other non-session timestamp controls retain their existing behavior.
+- Date replacement preserves local time, including seconds/milliseconds. Time replacement preserves date and the unexposed seconds/milliseconds, making a change and exact visible revert reversible. Merely opening/dismissing or confirming an unchanged value does not touch timing authority.
+- Both operations retain the old overlap offset where valid; nonexistent DST local times resolve forward using the existing Java time-zone policy. Normal basic/detailed/timer authority remains in SessionEditor; pickers deliver one confirmed Start/End edit, never intermediate scrolling edits.
+
+### Native wheel implementation
+
+- Use Android **NumberPicker** embedded through **AndroidView**, with native dragging, fling, snap, wrapping, accessibility and direct numeric entry. No new dependency or custom gesture engine. Native programmatic value synchronization does not call its user-change listener; current callbacks use updated Compose state.
+- 12-hour mode: 1–12 hour, 00–59 minute, tappable AM/PM. Crossing 11→12 or 12→11 flips period; 12↔1 wrapping does not. 24-hour mode: 00–23, no period control. Minutes are independent one-minute steps (minute wrapping does not advance the hour/date).
+- Temporary hour/minute state survives activity recreation. Done validates any native typed value and applies once; Cancel, Back or switching to another picker discards the temporary choice. Only one time picker expands. Record Save is disabled while it is open; users explicitly Done/Cancel first.
+- Normal inline height is **156 dp** (108 dp wheel + action row), within the 130–170 dp target. Narrow content below 240 dp, font scale above 1.3, landscape, or a window below 480 dp high uses a compact AlertDialog fallback. Native wheels retain theme-appropriate contrast, touch handling and keyboard entry. Calendar dialogs are disposed safely with the editor lifecycle.
+
+### Semantic discard policy
+
+- Capture a normalized private saved-state snapshot **once**, after default pump lookup, existing phase load and existing allocation load finish. Until then, fields show Loading and Save/unit controls are disabled; Cancel/Back can close the untouched editor. This prevents loading/recomposition/defaults from becoming edits or swallowing a real first edit into the baseline.
+- Retain the baseline as a compact private SHA-256 fingerprint of length-prefixed normalized values, avoiding duplicate notes/large text in saved state. Compare current values to that baseline on both Cancel and system Back. Include timing and duration draft, all milk drafts/split/no-milk, notes, context, pump ID, power classification, ordered phase kinds/duration drafts, stash switch/custom allocation drafts/locations, and reminder choice/custom deadline.
+- Normalize valid numbers to stored precision; preserve blank/invalid/incomplete text distinctly. Unit switching itself persists immediately and does not lose work on Cancel; equal physical volumes compare equal across units. Include hidden custom drafts, but normalize untouched auto allocations/default reminder times as derived state. Phase snapshots project valid pending phase durations without mutating editor timing. Stable IDs, authority history, expansion/focus and internal derived flags are not independent user edits.
+- Reverting all editable values clears the warning. No permanent hasEverEdited flag. Canceling the discard dialog retains the entire draft, including picker state. Opening/dismissing a picker is not dirty; native wheel values are not session edits until Done.
+- Room remains **schema 6**, native JSON remains **v4** (older supported imports retained). No database/backup/signing/identity changes and no record rewrite. Immediate Duration synchronization, both power modes, pause handling, stash links, context/profiles, reminder/future-End rules and existing history indicators are preserved.
+
+### Verification and owner gate
+
+- [x] Full debug **290/290** and release **290/290** unit tests passed, including 8 new editor-UX tests, DST boundaries, compact snapshot serialization, prior migrations, backups, reminders, timing and inventory regressions.
+- [x] Full API 36.1 disposable-emulator suite **68/68** passed, no skips: the 49 previous workflows plus 16 editor-UX and 3 layout tests. Coverage includes real native wheel drag/snap and accessibility steps, period boundaries, 24-hour mode, temporary picker recreation, independent date/time edits, detailed timing, discard/revert/invalid drafts, hidden allocation drafts, default pump loading and system Back.
+- [x] Python tooling **13/13** passed. Debug and release lint each **0 errors / 20 existing warnings**, with no new warnings.
+- [x] `:app:assembleDebug` automatically staged and independently verified the APK: **1.4.7-dev/code 14**, debug package/label, API 26 minimum / 36 target / 37 compile, unchanged debug signing certificate. SHA-256: `762cf3d7e3e58f16efd23fc1c11289e03fa224af944ee2beec59a196d445b295`.
+- [x] Actual APK **1.4.6→1.4.7 in-place upgrade** passed on a fresh read-only API 36.1 emulator without uninstall/clear-data: every stored table was identical after upgrade; reopening/saving synthetic basic and detailed sessions preserved all data except expected updated timestamps; five phase IDs/order/totals, context, pump, stash ledger, mL preference and cold restart survived. Published production beta and Dev coexisted under distinct UIDs with independent synthetic records.
+- [x] Additional actual-APK display check passed at normal size, font scale **1.6**, and landscape plus font scale **1.6**: native wheels and Done/Cancel remained visible; screenshots were visually inspected for clipping, and dismissing the picker/editor required no false discard warning. Screenshots/results stay local in the version directory.
+- [ ] Owner physical Samsung review remains pending. No claim of physical-device acceptance for this revision.
+
+The accepted 1.4.6 APK remains byte-identical (`3439d663f9eb044015a9c5047e7fdddc26ce2c5c5620b3e655b682e156c0db67`). New version: **1.4.7-dev/code 14**, ID **dev.killermelon1458.pumping.debug**, label **Pumping Dev**, staged by the existing workflow under `dev-builds/1.4.7-dev/`. New source is to be staged for review only; no 1.4.7 commit/tag, push, publication or production signing. Stop for owner physical-device review. Stage 4 remains unauthorized.
