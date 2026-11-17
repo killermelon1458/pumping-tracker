@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 class PowerPumpWorkflowTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private fun app()=compose.activity.application as SyntheticTestApplication
-    @Before fun reset()=runBlocking { app().db.clearAllTables();app().settings.string("unit","oz") }
+    @Before fun reset()=runBlocking { app().db.clearAllTables();app().settings.saveTimePickerStyle(app.pumping.domain.TimePickerStyle.SCROLL_WHEELS);app().settings.string("unit","oz") }
     private fun saved()=runBlocking { app().repository.dao.allSessions().single() }
     private fun closed()=compose.waitUntil(15000){compose.onAllNodesWithTag("editor-header").fetchSemanticsNodes().isEmpty()}
     private fun save(){compose.onNodeWithText("Save",substring=false).performClick();closed()}

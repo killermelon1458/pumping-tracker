@@ -3,6 +3,8 @@ package app.pumping
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.pumping.data.*
@@ -18,7 +20,7 @@ import org.junit.runner.RunWith
 class DurationSynchronizationWorkflowTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private fun app()=compose.activity.application as SyntheticTestApplication
-    @Before fun reset()=runBlocking { app().db.clearAllTables();app().settings.string("unit","oz");app().settings.bool("24h",false) }
+    @Before fun reset()=runBlocking { app().db.clearAllTables();app().settings.saveTimePickerStyle(app.pumping.domain.TimePickerStyle.SCROLL_WHEELS);app().settings.string("unit","oz");app().settings.bool("24h",false) }
     private fun label(name:String)="$name: " + compose.onNodeWithTag("timestamp-${name.lowercase()}").fetchSemanticsNode().config[SemanticsProperties.StateDescription]
     private fun timestamp(name:String):Long = LocalDateTime.parse(label(name).substringAfter(": "),DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a")).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     private fun duration()=compose.onNodeWithTag("Duration (minutes)")
@@ -65,8 +67,15 @@ class DurationSynchronizationWorkflowTest {
     @Test fun selectingAnotherPumpCannotLeaveAValidDraftUnsynchronized() {
         val pump=PumpProfile(nickname="Synthetic duration pump")
         runBlocking{app().repository.savePumpProfile(pump)}
+        val vm=ViewModelProvider(compose.activity)[PumpViewModel::class.java]
+        compose.waitUntil(15000) { vm.pumps.value.any { it.id == pump.id } }
         val end=fresh();replace("40")
-        compose.onNodeWithTag("pump-selector").performScrollTo().performClick()
+        // Use the real UI accessibility action so IME resize cannot move the button
+        // between scroll and touch injection. Separate profile workflows cover touch.
+        compose.onNodeWithTag("pump-selector").performScrollTo().performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.waitUntil(15000) {
+            compose.onAllNodesWithTag("pump-option-${pump.id}").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("pump-option-${pump.id}").performClick()
         assertTimes(end-2400000,end);assertEquals("40",draft())
         compose.onNodeWithContentDescription("Pump: ${pump.nickname}").assertExists()

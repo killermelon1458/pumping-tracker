@@ -35,6 +35,8 @@ Version| Purpose
 1.4.7-dev| Independent date/time controls, native time wheels and semantic discard detection
 1.4.8-dev| Stage 4A filterable statistics and pump comparisons
 1.4.8-beta| Promotion of the accepted 1.4.8 development milestone
+1.4.9-dev| History cleanup, stash timestamp/discard parity, independent editor layouts and global picker style
+1.4.10-dev| Scrollable customization footer and compact section layout rows
 
 The historical "1.4.0-beta.1" release is grandfathered into the convention.
 
@@ -44,7 +46,7 @@ Android version codes
 
 Android "versionCode" is an integer and must increase as development revisions advance.
 
-The current public baseline is version code 7 for "1.4.0-beta.1".
+The current public baseline is "1.4.8-beta", version code 15. Historical "1.4.0-beta.1" uses code 7.
 
 Examples:
 
@@ -60,6 +62,8 @@ Version| Version code
 1.4.7-dev| 14
 1.4.8-dev| 15
 1.4.8-beta| 15
+1.4.9-dev| 16
+1.4.10-dev| 17
 
 Development and beta builds of the same revision may share a version code because their Android application IDs differ.
 
@@ -123,7 +127,7 @@ Stage development builds under:
 
 `dev-builds/VERSION/Pumping-VERSION.apk`
 
-For the current checkpoint: `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`.
+For the current checkpoint: `dev-builds/1.4.10-dev/Pumping-1.4.10-dev.apk`.
 
 Each development version directory retains its APK, checksum, automatic `.build.json` verification report, and `BUILD_INFO.md` with actual test results and limitations. `dev-builds/` is ignored by Git but remains available locally for Syncthing; ignoring a directory does not remove it or disable synchronization.
 
@@ -199,3 +203,13 @@ Development Git milestones
 7. Preserve each versioned artifact: identical bytes may be restaged; do not overwrite an existing artifact with different bytes. Resolve a collision explicitly or advance the revision for changed distributable content. Keep historical APKs/reports where practical.
 
 The accepted Stage 4A checkpoint is committed/tagged as `v1.4.8-dev` (`70e373f`). The owner authorized promotion to `1.4.8-beta` / code 15 with the permanent production identity/certificate, local annotated beta tag, push and prerelease publication only after verification. Stage 4B remains deferred. Release-only documentation may be committed separately without rebuilding an unchanged application, provided provenance records the actual APK build commit and verifies every distributable/build input is identical; never relabel an old binary as built at a newer documentation commit.
+
+The accepted preceding private milestone is **1.4.9-dev / code 16**, above the immutable published 1.4.8-beta baseline. It changes editor presentation and device-local DataStore layout/picker preferences only; Room 6/native JSON v4 and permanent production identity/signing remain unchanged. Stage source for review only; this task does not authorize a commit, tag, release or Stage 4B. See [editor UX notes](EDITOR_LAYOUTS.md).
+
+The owner’s picker-style amendment remains part of 1.4.9-dev/code 16 because no 1.4.9 APK was finalized or distributed beforehand. Repeat verification for the complete amended source before staging the single deliverable; earlier internal candidate checks are not the final amended-build results.
+
+The owner physically accepted 1.4.9-dev/code 16. The cumulative uncommitted checkpoint now advances to **1.4.10-dev/code 17** for focused editor organization corrections: the unchanged customization buttons scroll at the bottom; section editing uses one row with the drag handle on the right. Retain the accepted 1.4.9 APK and reports unchanged. No persistence/backup/signing changes and no Stage 4B work are authorized. Stage source for review; do not commit/tag/push/publish.
+
+## 1.4.10 beta promotion
+
+The owner physically accepted 1.4.10-dev/code 17 and explicitly authorized promotion to **1.4.10-beta/code 17** without a revision/code increment. Phase A audits and commits the cumulative accepted 33-file source checkpoint plus release documentation, verifies a clean tree, and stops for owner-local signing. No keystore/password access or production build is performed by the agent in Phase A. Phase B reuses the owner's signed artifact and requires independent permanent-certificate verification, an in-place signed upgrade from published 1.4.8-beta on a disposable emulator, and focused fresh-install smoke checks before annotated tag `v1.4.10-beta`, push and GitHub prerelease publication. Development results are reused; full-suite repetition requires a specific reason. Preserve previous releases. Stage 4B and 1.5.0 features remain deferred.

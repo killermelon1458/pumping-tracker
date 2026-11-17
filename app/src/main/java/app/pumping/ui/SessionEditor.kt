@@ -19,6 +19,7 @@ fun SessionEditor(
     notification: () -> Unit,
     close: () -> Unit,
 ) {
+    val layout = rememberEditorLayout(EditorKind.PUMP, vm.store)
     val pumps by vm.pumps.collectAsStateWithLifecycle()
     var selectedPump by rememberSaveable { mutableStateOf(existing?.pumpProfileId) }
     var pumpInitialized by rememberSaveable { mutableStateOf(existing != null) }
@@ -251,7 +252,8 @@ fun SessionEditor(
         if (initialSnapshot == null && pumpInitialized && phaseLoaded && allocationLoaded) initialSnapshot = snapshot()
     }
     fun requestClose() {
-        if (initialSnapshot == null || snapshot() == initialSnapshot) close() else discard = true
+        if (layout.editing) layout.cancel()
+        else if (initialSnapshot == null || snapshot() == initialSnapshot) close() else discard = true
     }
     BackHandler {
         if (expandedTime != null) expandedTime = null else requestClose()
@@ -322,6 +324,7 @@ fun SessionEditor(
         { requestSave() },
         !busy && expandedTime == null && initialSnapshot != null && pumpInitialized && phaseLoaded && output != null && (output > 0 || zero),
         inputUnit = inputUnit,
+        layout = layout,
         unitEnabled = !busy && initialSnapshot != null,
         onUnitToggle = {
             busy = true
@@ -351,194 +354,213 @@ fun SessionEditor(
             Text("Loading session…")
             return@EditorLayout
         }
-        CardBlock {
-            if (hasDetails) {
-                Text("Pumping time: ${pumpElapsedText(phaseActive * 1000)}")
-                Text("Total elapsed time: ${pumpElapsedText((end - start))}")
-                Text("Pumping time excludes rests; total elapsed time includes them.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Field(
-                    "Duration (minutes)",
-                    duration,
-                    { v ->
-                        if (v != duration) {
-                            // Preserve the user's exact text/cursor. Only valid values update timing.
-                            duration = v
-                            timingError = null
-                            runCatching { durationSeconds(v) }.getOrNull()?.let {
-                                commitTime(TimeField.DURATION, it, preserveDurationDraft = true)
+        val recordedSections = buildSet {
+            if (existing != null) {
+                if (existing.breastfedBefore != BreastfeedingStatus.UNKNOWN) add("breastfeeding")
+                if (existing.powerStatus == PowerPumpStatus.POWER || hasDetails) add("power")
+                if (existing.pumpProfileId != null) add("pump")
+                if (existing.notes.isNotEmpty()) add("notes")
+                if (existingAllocation > 0) add("stash")
+            }
+        }
+        EditorSections(layout, recordedSections) { section ->
+            when (section) {
+                "timing" -> CardBlock {
+                    if (hasDetails) {
+                        Text("Pumping time: ${pumpElapsedText(phaseActive * 1000)}")
+                        Text("Total elapsed time: ${pumpElapsedText((end - start))}")
+                        Text("Pumping time excludes rests; total elapsed time includes them.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Field(
+                            "Duration (minutes)",
+                            duration,
+                            { v ->
+                                if (v != duration) {
+                                    // Preserve the user's exact text/cursor. Only valid values update timing.
+                                    duration = v
+                                    timingError = null
+                                    runCatching { durationSeconds(v) }.getOrNull()?.let {
+                                        commitTime(TimeField.DURATION, it, preserveDurationDraft = true)
+                                    }
+                                }
+                            },
+                            true,
+                            onCommit = {
+                                if (commitDuration() && !customReminder)
+                                    remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                            },
+                            enabled = phaseLoaded,
+                        )
+                    }
+                    if (!hasDetails && ((!elapsedKnown) || (powerName == PowerPumpStatus.POWER.name && !timedSession))) Text("Duration is active pumping time; actual total elapsed time is not recorded.", style = MaterialTheme.typography.bodySmall)
+                    else if (separateActiveSpan && (powerName != PowerPumpStatus.POWER.name || timedSession)) Text("Recorded elapsed: ${pumpElapsedText(end - start)}. Active time excludes breaks.")
+                    SessionTimestamp("Start", start, s, expandedTime == "Start", phaseLoaded,
+                        openDate = { expandedTime = null },
+                        openTime = { expandedTime = if (expandedTime == "Start") null else "Start" },
+                        cancelTime = { expandedTime = null }) {
+                        if (commitDuration() && commitTime(TimeField.START, it) && !customReminder)
+                            remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                    }
+                    SessionTimestamp("End", end, s, expandedTime == "End", phaseLoaded,
+                        openDate = { expandedTime = null },
+                        openTime = { expandedTime = if (expandedTime == "End") null else "End" },
+                        cancelTime = { expandedTime = null }) {
+                        if (commitDuration() && commitTime(TimeField.END, it) && !customReminder)
+                            remindAt = nextReminder(referenceAt(), s.reminderMinutes)
+                    }
+                    timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (timer != null)
+                        Text(
+                            "Active duration excludes pauses. Start and end retain the full session span.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                }
+                "power" -> CardBlock {
+                    Toggle("Power Pump", powerName == PowerPumpStatus.POWER.name, { enabled ->
+                        val next = if (enabled) PowerPumpStatus.POWER.name else PowerPumpStatus.NORMAL.name
+                        if (!enabled && phaseInputs.isNotEmpty()) { pendingPowerName = next; pendingPhases = emptyList() }
+                        else {
+                            powerName = next
+
+                        }
+                    }, if (powerName == PowerPumpStatus.UNKNOWN.name) "Not specified for this historical record" else null, enabled = phaseLoaded)
+                    if (existing != null && powerName != PowerPumpStatus.UNKNOWN.name) TextButton({
+                        if (phaseInputs.isNotEmpty()) { pendingPowerName = PowerPumpStatus.UNKNOWN.name; pendingPhases = emptyList() } else powerName = PowerPumpStatus.UNKNOWN.name
+                    }) { Text("Mode not specified") }
+                    if (powerName == PowerPumpStatus.POWER.name) {
+                        TextButton({ timingExpanded = !timingExpanded }, enabled = phaseLoaded) { Text(if (timingExpanded) "Hide timing details" else "Timing details (optional)") }
+                        if (timingExpanded) {
+                            if (timedSession) Text("Intervals must match recorded timer active/elapsed totals; pauses will not be overwritten.")
+                            PowerTimingEditor(phaseInputs,
+                                input = { id, text -> phaseInputs = phaseInputs.map { if (it.id == id && it.text != text) it.copy(text = text, dirty = true) else it } },
+                                commit = { if (applyPhases(phaseInputs) && !customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes) },
+                                change = { requestPhases(it) },
+                                preset = { requestPhases(powerPreset(draftId).map { it.input() }) },
+                                firstPumpSeconds = if (hasDetails) phaseActive else committedSeconds,
+                            )
+                            timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                }
+                "breastfeeding" -> CardBlock {
+                    Text("Breastfed before pumping?", style = MaterialTheme.typography.titleMedium)
+                    Choices(BreastfeedingStatus.entries.map { it.displayLabel() },
+                        BreastfeedingStatus.valueOf(breastfedBefore).displayLabel()) { label ->
+                        breastfedBefore = BreastfeedingStatus.entries.first { it.displayLabel() == label }.name
+                    }
+                }
+                "pump" -> CardBlock {
+                    PumpSelector(pumps, selectedPump, existing?.pumpProfileId) {
+                        selectedPump = it
+                        pumpInitialized = true
+                    }
+                }
+                "milk" -> CardBlock {
+                    Toggle("No milk expressed", zero, { zero = it })
+                    if (!zero) {
+                        if (split) {
+                            Field("Left Breast (${inputUnit})", left, { left = it }, true)
+                            Field("Right Breast (${inputUnit})", right, { right = it }, true)
+                            Text("Total: ${output?.let{quantity(it,s)} ?: "—"}")
+                        } else Field("Volume (${inputUnit})", total, { total = it }, true)
+                        Toggle("Track each breast separately", split, { split = it })
+                    }
+                }
+                "stash" -> CardBlock {
+                    if (existingAllocation > 0)
+                        Text(
+                            "Previously stashed: ${quantity(existingAllocation,s)}. Existing bags keep their inventory history."
+                        )
+                    Toggle(
+                        "Stash It",
+                        stash,
+                        {
+                            stash = it
+                            if (it && allocationValues == listOf("") && output != null)
+                                allocationValues =
+                                    listOf(
+                                        Volume.format(maxOf(0, output - existingAllocation), inputUnit, 5)
+                                    )
+                        },
+                    )
+                    if (stash) {
+                        Text(
+                            "Allocate up to your measured output. These are new bags.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        allocationValues.forEachIndexed { i, v ->
+                            Text("Bag allocation ${i+1}", color = MaterialTheme.colorScheme.secondary)
+                            Field(
+                                "Quantity (${inputUnit})",
+                                v,
+                                { n ->
+                                    allocationValues = allocationValues.toMutableList().also { it[i] = n }
+                                },
+                                true,
+                            )
+                            Choices(
+                                if (s.deep) listOf("Fridge", "Freezer", "Deep Freezer")
+                                else listOf("Fridge", "Freezer"),
+                                allocationLocations[i],
+                            ) { n ->
+                                allocationLocations = allocationLocations.toMutableList().also { it[i] = n }
+                            }
+                            Text(
+                                "Estimated expiry: ${dayOf(expiry(end,s.days(allocationLocations[i])))}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Row {
+                            TextButton({
+                                allocationValues = allocationValues + ""
+                                allocationLocations = allocationLocations + "Fridge"
+                            }) {
+                                Text("+ Add bag")
+                            }
+                            if (allocationValues.size > 1)
+                                TextButton({
+                                    allocationValues = allocationValues.dropLast(1)
+                                    allocationLocations = allocationLocations.dropLast(1)
+                                }) {
+                                    Text("Remove last")
+                                }
+                        }
+                    }
+                }
+                "reminder" -> CardBlock {
+                    Toggle(
+                        "Next Pump",
+                        reminder,
+                        {
+                            reminder = it
+                            if (it) notification()
+                        },
+                    )
+                    if (reminder) {
+                        SessionTimestamp("Remind at", remindAt, s, expandedTime == "Remind at", !busy,
+                            openDate = { expandedTime = null },
+                            openTime = { expandedTime = if (expandedTime == "Remind at") null else "Remind at" },
+                            cancelTime = { expandedTime = null }) {
+                            remindAt = it
+                            customReminder = true
+                        }
+                        Row {
+                            listOf(15, 30, 60).forEach { m ->
+                                TextButton({
+                                    remindAt += m * 60000L
+                                    customReminder = true
+                                }) {
+                                    Text("+$m min")
+                                }
                             }
                         }
-                    },
-                    true,
-                    onCommit = {
-                        if (commitDuration() && !customReminder)
-                            remindAt = nextReminder(referenceAt(), s.reminderMinutes)
-                    },
-                    enabled = phaseLoaded,
-                )
-            }
-            if (!hasDetails && ((!elapsedKnown) || (powerName == PowerPumpStatus.POWER.name && !timedSession))) Text("Duration is active pumping time; actual total elapsed time is not recorded.", style = MaterialTheme.typography.bodySmall)
-            else if (separateActiveSpan && (powerName != PowerPumpStatus.POWER.name || timedSession)) Text("Recorded elapsed: ${pumpElapsedText(end - start)}. Active time excludes breaks.")
-            SessionTimestamp("Start", start, s, expandedTime == "Start", phaseLoaded,
-                openDate = { expandedTime = null },
-                openTime = { expandedTime = if (expandedTime == "Start") null else "Start" },
-                cancelTime = { expandedTime = null }) {
-                if (commitDuration() && commitTime(TimeField.START, it) && !customReminder)
-                    remindAt = nextReminder(referenceAt(), s.reminderMinutes)
-            }
-            SessionTimestamp("End", end, s, expandedTime == "End", phaseLoaded,
-                openDate = { expandedTime = null },
-                openTime = { expandedTime = if (expandedTime == "End") null else "End" },
-                cancelTime = { expandedTime = null }) {
-                if (commitDuration() && commitTime(TimeField.END, it) && !customReminder)
-                    remindAt = nextReminder(referenceAt(), s.reminderMinutes)
-            }
-            timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (timer != null)
-                Text(
-                    "Active duration excludes pauses. Start and end retain the full session span.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-        }
-        CardBlock {
-            Toggle("Power Pump", powerName == PowerPumpStatus.POWER.name, { enabled ->
-                val next = if (enabled) PowerPumpStatus.POWER.name else PowerPumpStatus.NORMAL.name
-                if (!enabled && phaseInputs.isNotEmpty()) { pendingPowerName = next; pendingPhases = emptyList() }
-                else {
-                    powerName = next
-
-                }
-            }, if (powerName == PowerPumpStatus.UNKNOWN.name) "Not specified for this historical record" else null, enabled = phaseLoaded)
-            if (existing != null && powerName != PowerPumpStatus.UNKNOWN.name) TextButton({
-                if (phaseInputs.isNotEmpty()) { pendingPowerName = PowerPumpStatus.UNKNOWN.name; pendingPhases = emptyList() } else powerName = PowerPumpStatus.UNKNOWN.name
-            }) { Text("Mode not specified") }
-            if (powerName == PowerPumpStatus.POWER.name) {
-                TextButton({ timingExpanded = !timingExpanded }, enabled = phaseLoaded) { Text(if (timingExpanded) "Hide timing details" else "Timing details (optional)") }
-                if (timingExpanded) {
-                    if (timedSession) Text("Intervals must match recorded timer active/elapsed totals; pauses will not be overwritten.")
-                    PowerTimingEditor(phaseInputs,
-                        input = { id, text -> phaseInputs = phaseInputs.map { if (it.id == id && it.text != text) it.copy(text = text, dirty = true) else it } },
-                        commit = { if (applyPhases(phaseInputs) && !customReminder) remindAt = nextReminder(referenceAt(), s.reminderMinutes) },
-                        change = { requestPhases(it) },
-                        preset = { requestPhases(powerPreset(draftId).map { it.input() }) },
-                        firstPumpSeconds = if (hasDetails) phaseActive else committedSeconds,
-                    )
-                    timingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            }
-            HorizontalDivider()
-            Text("Breastfed before pumping?", style = MaterialTheme.typography.titleMedium)
-            Choices(BreastfeedingStatus.entries.map { it.displayLabel() },
-                BreastfeedingStatus.valueOf(breastfedBefore).displayLabel()) { label ->
-                breastfedBefore = BreastfeedingStatus.entries.first { it.displayLabel() == label }.name
-            }
-            PumpSelector(pumps, selectedPump, existing?.pumpProfileId) {
-                selectedPump = it
-                pumpInitialized = true
-            }
-        }
-        CardBlock {
-            Toggle("No milk expressed", zero, { zero = it })
-            if (!zero) {
-                if (split) {
-                    Field("Left Breast (${inputUnit})", left, { left = it }, true)
-                    Field("Right Breast (${inputUnit})", right, { right = it }, true)
-                    Text("Total: ${output?.let{quantity(it,s)} ?: "—"}")
-                } else Field("Volume (${inputUnit})", total, { total = it }, true)
-                Toggle("Track each breast separately", split, { split = it })
-            }
-        }
-        CardBlock {
-            if (existingAllocation > 0)
-                Text(
-                    "Previously stashed: ${quantity(existingAllocation,s)}. Existing bags keep their inventory history."
-                )
-            Toggle(
-                "Stash It",
-                stash,
-                {
-                    stash = it
-                    if (it && allocationValues == listOf("") && output != null)
-                        allocationValues =
-                            listOf(
-                                Volume.format(maxOf(0, output - existingAllocation), inputUnit, 5)
-                            )
-                },
-            )
-            if (stash) {
-                Text(
-                    "Allocate up to your measured output. These are new bags.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                allocationValues.forEachIndexed { i, v ->
-                    Text("Bag allocation ${i+1}", color = MaterialTheme.colorScheme.secondary)
-                    Field(
-                        "Quantity (${inputUnit})",
-                        v,
-                        { n ->
-                            allocationValues = allocationValues.toMutableList().also { it[i] = n }
-                        },
-                        true,
-                    )
-                    Choices(
-                        if (s.deep) listOf("Fridge", "Freezer", "Deep Freezer")
-                        else listOf("Fridge", "Freezer"),
-                        allocationLocations[i],
-                    ) { n ->
-                        allocationLocations = allocationLocations.toMutableList().also { it[i] = n }
-                    }
-                    Text(
-                        "Estimated expiry: ${dayOf(expiry(end,s.days(allocationLocations[i])))}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Row {
-                    TextButton({
-                        allocationValues = allocationValues + ""
-                        allocationLocations = allocationLocations + "Fridge"
-                    }) {
-                        Text("+ Add bag")
-                    }
-                    if (allocationValues.size > 1)
-                        TextButton({
-                            allocationValues = allocationValues.dropLast(1)
-                            allocationLocations = allocationLocations.dropLast(1)
-                        }) {
-                            Text("Remove last")
-                        }
-                }
-            }
-        }
-        CardBlock {
-            Toggle(
-                "Next Pump",
-                reminder,
-                {
-                    reminder = it
-                    if (it) notification()
-                },
-            )
-            if (reminder) {
-                Timestamp("Remind at", remindAt, s) {
-                    remindAt = it
-                    customReminder = true
-                }
-                Row {
-                    listOf(15, 30, 60).forEach { m ->
-                        TextButton({
-                            remindAt += m * 60000L
-                            customReminder = true
-                        }) {
-                            Text("+$m min")
-                        }
                     }
                 }
+                "notes" -> Field("Notes (optional)", notes, { notes = it }, lines = 3)
             }
         }
-        Field("Notes (optional)", notes, { notes = it }, lines = 3)
         if (existing != null)
-            TextButton({ deleting = true }) {
+            TextButton({ deleting = true }, enabled = !layout.editing) {
                 Text("Delete session", color = MaterialTheme.colorScheme.error)
             }
         Text(

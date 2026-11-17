@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
 class EditorUxWorkflowTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private fun app()=compose.activity.application as SyntheticTestApplication
-    @Before fun reset()=runBlocking {app().db.clearAllTables();app().settings.string("unit","oz");app().settings.bool("24h",false)}
+    @Before fun reset()=runBlocking {app().db.clearAllTables();app().settings.saveTimePickerStyle(app.pumping.domain.TimePickerStyle.SCROLL_WHEELS);app().settings.string("unit","oz");app().settings.bool("24h",false)}
     private fun open(){compose.onNodeWithText("Quick Log").performClick();compose.waitUntil(15000){compose.onAllNodesWithTag("start-date").fetchSemanticsNodes().isNotEmpty()}}
     private fun closed()=compose.waitUntil(15000){compose.onAllNodesWithTag("editor-header").fetchSemanticsNodes().isEmpty()}
     private fun cancel(){compose.onNodeWithTag("editor-cancel").performClick()}

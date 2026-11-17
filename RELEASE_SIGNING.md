@@ -1,6 +1,6 @@
 # Building and verifying signed beta releases
 
-The permanent production application ID is `dev.killermelon1458.pumping`. **1.4.8-beta (15)** promotes the accepted development milestone; historical **1.4.0-beta.1 (7)** remains unchanged. Current source revision **1.4.8**, code **15**, builds as **1.4.8-dev** for debug or **1.4.8-beta** for release; no new beta is authorized by changing this convention. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
+The permanent production application ID is `dev.killermelon1458.pumping`. **1.4.10-beta (17)** promotes the owner-accepted development milestone; published **1.4.8-beta (15)** and historical **1.4.0-beta.1 (7)** remain unchanged. Current source revision **1.4.10**, code **17**, builds as **1.4.10-dev** for debug or **1.4.10-beta** for release. Promotion retains the revision/code. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
 
 From this beta onward, distributed updates must use this permanent ID, the same permanent signing key/certificate and an increased version code. Preserve Room migrations, DataStore state and compatibility with previous native/iOS backups. Never clear or uninstall a real-data installation to make an update work.
 
@@ -83,10 +83,10 @@ The script runs SDK Build Tools 36.1.0 `apksigner verify --verbose --print-certs
 
 After automatic Gradle staging, independently verify the permanent fingerprint with the command above. Only after this verification succeeds does the helper retain/stage the same APK and write its release-verification files:
 
-- `test-builds/Pumping-1.4.8-beta.apk`
-- `test-builds/Pumping-1.4.8-beta.apk.sha256`
-- `test-builds/Pumping-1.4.8-beta-verification.json`
-- `test-builds/Pumping-1.4.8-beta-verification.md`
+- `test-builds/Pumping-1.4.10-beta.apk`
+- `test-builds/Pumping-1.4.10-beta.apk.sha256`
+- `test-builds/Pumping-1.4.10-beta-verification.json`
+- `test-builds/Pumping-1.4.10-beta-verification.md`
 
 The helper derives the beta filename/version from `gradle.properties`; the filenames above illustrate the current revision only. Promotion keeps its revision and versionCode unchanged. The metadata records the actual signing fingerprint, checksum, current source HEAD and dirty-worktree state. A dirty build is a local candidate, not proof that HEAD contains those changes; commit/rebuild before tagging. The script refuses to overwrite a different existing beta asset: archive that local candidate first if replacing it intentionally. Record automated and device test results separately in `test-builds/BUILD_INFO.md`; the verifier does not invent test results or certify the freshness of old reports.
 
@@ -101,19 +101,19 @@ unset PUMPING_KEYSTORE_PASSWORD PUMPING_KEY_PASSWORD
 On an empty disposable emulator first, verify clean installation, session editing/deletion, linked stash creation/usage/deletion, bag-number reuse, both unit settings, Start/End reference, reminders/actions, native JSON export/reimport, and synthetic iOS import/reimport. Restart the app and verify persisted records/settings. Check actual release file-picker and alarm behavior. Do not include private backups in any test artifact.
 
 ```bash
-adb install test-builds/Pumping-1.4.8-beta.apk
+adb install test-builds/Pumping-1.4.10-beta.apk
 ```
 
 For subsequent public releases, test `adb install -r` over the previously distributed release using the same permanent certificate and a higher version code. Verify quantities, notes, relationships, reminder state and backups remain intact. Keep the first beta APK/certificate metadata for future upgrade tests. No migration from development installations is attempted; imports between variants require an explicit user-selected backup.
 
 ## 7. Publish only after explicit authorization and verification
 
-1. Complete the release installation/physical-device checks and update the local build information and release notes with actual results, final commit and signing fingerprint.
+1. Reuse owner-accepted development verification. Complete mandatory production signature, signed 1.4.8→1.4.10 upgrade and focused fresh-install checks on a disposable emulator; update local build information/release notes with actual results, final commit and fingerprint. Do not claim a production-phone upgrade.
 2. Verify the final reviewed changes are committed and pushed by you. Rebuild/verify if the source commit changes.
-3. Create annotated tag **`v1.4.8-beta`** at the final verified release commit. If release preparation changes documentation only, record the original APK build commit and verify identical application/build inputs; do not claim a rebuild. Push the reviewed main branch and authorized tags.
-4. In <https://github.com/killermelon1458/pumping-tracker/releases/new>, select that tag, set title **Pumping 1.4.8 Beta**, and mark **Prerelease**.
-5. Paste the reviewed local `test-builds/RELEASE_NOTES-1.4.8-beta.md`. Attach only the verified `Pumping-1.4.8-beta.apk` and its checksum (and public verification metadata if desired), then publish yourself.
+3. Create annotated tag **`v1.4.10-beta`** at the final verified release commit. If release preparation changes documentation only, record the original APK build commit and verify identical application/build inputs; do not claim a rebuild. Push the reviewed main branch and authorized tags.
+4. In <https://github.com/killermelon1458/pumping-tracker/releases/new>, select that tag, set title **Pumping 1.4.10 Beta**, and mark **Prerelease**.
+5. Paste the reviewed local `test-builds/RELEASE_NOTES-1.4.10-beta.md`. Attach only the verified `Pumping-1.4.10-beta.apk` and its checksum (and public verification metadata if desired), then publish yourself.
 
-These build/verification commands never publish automatically. An owner or explicitly authorized agent may commit, tag, push and publish only after every mandatory gate passes. The 1.4.8 promotion is explicitly authorized; Stage 4B and subsequent development are not. Credentials never belong in release assets.
+These build/verification commands never publish automatically. An owner or explicitly authorized agent may commit, tag, push and publish only after every mandatory gate passes. The 1.4.10 promotion is explicitly authorized in two phases: Phase A commits preparation and stops for owner-local signing. Phase B uses that signed artifact, independently verifies its permanent certificate and tests an in-place update from the published 1.4.8-beta on a disposable emulator plus a focused fresh-install smoke test before tagging/pushing/publication. Reuse accepted development results; do not repeat the full development campaign without a specific failure. Stage 4B and 1.5.0 work remain out of scope. Credentials never belong in release assets.
 
 Android references: [release signing](https://developer.android.com/studio/publish/app-signing), [Gradle signing configuration](https://developer.android.com/build/gradle-tips), [build variants](https://developer.android.com/build/build-variants).

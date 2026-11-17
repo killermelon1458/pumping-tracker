@@ -40,10 +40,10 @@ Use a disposable emulator for `./gradlew :app:connectedDebugAndroidTest`; instru
 Identical builds may be restaged; a different APK under an existing versioned filename fails without replacing it. Explicitly resolve/archive a candidate collision or advance the revision for changed distributable content. Keep previous versioned APKs. Tests are not invented by staging: retain commands/results in each development version directory's `BUILD_INFO.md` (release verification reports remain under `test-builds/`).
 
 ```bash
-adb install -r dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk
+adb install -r dev-builds/1.4.10-dev/Pumping-1.4.10-dev.apk
 ```
 
-Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.8-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. A version convention alone does not authorize a release, tag, upload or publication. Each action still requires explicit owner authorization.
+Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.10-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. A version convention alone does not authorize a release, tag, upload or publication. Each action still requires explicit owner authorization.
 
 
 ## Commit and tag checkpoints
@@ -55,3 +55,15 @@ Keep generated APKs, verification reports, private records and signing material 
 ## 1.4.8 beta provenance
 
 The signed 1.4.8-beta application was built from clean accepted commit `70e373f7027cd97843475554f9b1904a4aa2c306`. Release preparation changes documentation only; application, resources, manifests and Gradle/build-tool inputs are identical to that build commit. Preserve the original build receipt rather than claiming the APK was rebuilt at the documentation commit. The annotated beta tag identifies the final reviewed release tree; local release provenance records both commits and the input-equivalence check. No application rebuild or key access is needed for documentation-only changes.
+
+## 1.4.9 development milestone
+
+The accepted preceding private build is **1.4.9-dev / code 16**: history context cleanup, stash date/time and semantic-discard parity, reusable customizable editor sections, and an app-wide Clock face / Scroll wheels preference (default Clock face). [Editor layout notes](docs/EDITOR_LAYOUTS.md) describe persistence, visibility safeguards and the device-local backup limitation. Published 1.4.8-beta, its tags/APKs and release workflow remain unchanged. No Stage 4B work is included. Source is prepared for review without a commit or tag; physical-device acceptance is still required.
+
+## 1.4.10 editor organization correction
+
+Owner-tested 1.4.9 remains an immutable artifact. Current development is **1.4.10-dev/code 17**, retaining the cumulative uncommitted 1.4.9 implementation. Time picker and Edit Layout use the same compact text controls in a scrollable footer outside reorderable sections. Layout rows place Show, name, Up, Down and handle in one line; required checkboxes are locked on. Saved layouts and form state are unchanged. Physical acceptance is pending; no Stage 4B or release publication.
+
+## 1.4.10 beta promotion checkpoint
+
+The owner physically accepted 1.4.10-dev and authorized a two-phase production promotion. Phase A commits accepted source and release documentation, then stops for owner-local signing using `./gradlew --no-daemon --no-configuration-cache :app:assembleRelease`. Release suffix/identity produce 1.4.10-beta/code 17 without changing the accepted application source. Phase B requires certificate/identity validation, signed 1.4.8-beta upgrade and focused fresh-install checks before authorized publication. Reuse the existing development test reports. See [release notes](docs/releases/1.4.10-beta.md); no Stage 4B/1.5.0 work.

@@ -142,7 +142,7 @@ fun PumpScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
-                                Text(
+                                if (row.breastfedBefore != BreastfeedingStatus.UNKNOWN) Text(
                                     "Breastfed before pumping: ${row.breastfedBefore.displayLabel()}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )

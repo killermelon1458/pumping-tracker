@@ -1,24 +1,24 @@
 package app.pumping.ui
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.*
 import app.pumping.data.Settings
+import app.pumping.data.SettingsStore
 import app.pumping.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
@@ -108,15 +108,18 @@ fun Field(
     enabled: Boolean = true,
 ) {
     var hadFocus by remember { mutableStateOf(false) }
+    val interactive = enabled && LocalEditorInteraction.current
+    val canCommit by rememberUpdatedState(interactive && LocalEditorCommit.current)
+    val latestCommit by rememberUpdatedState(onCommit)
     OutlinedTextField(
         value,
         onChange,
         modifier.fillMaxWidth().testTag(label).onFocusChanged {
-            if (hadFocus && !it.isFocused) onCommit?.invoke()
+            if (hadFocus && !it.isFocused && canCommit) latestCommit?.invoke()
             hadFocus = it.isFocused
         },
         label = { Text(label) },
-        enabled = enabled,
+        enabled = interactive,
         singleLine = lines == 1,
         minLines = lines,
         shape = RoundedCornerShape(18.dp),
@@ -124,7 +127,7 @@ fun Field(
             KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
                 imeAction = if (onCommit != null) ImeAction.Done else ImeAction.Default),
         keyboardActions = if (onCommit == null) KeyboardActions.Default
-            else KeyboardActions(onDone = { onCommit() }),
+            else KeyboardActions(onDone = { if (canCommit) latestCommit?.invoke() }),
     )
 }
 
@@ -140,54 +143,20 @@ fun Toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit, detail:
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
         }
-        Switch(checked, onChange, Modifier.testTag(label), enabled = enabled)
+        Switch(checked, onChange, Modifier.testTag(label), enabled = enabled && LocalEditorInteraction.current)
     }
 }
 
 @Composable
 fun Choices(values: List<String>, selected: String, change: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        values.forEach { FilterChip(selected == it, { change(it) }, label = { Text(it) }) }
+        val interactive = LocalEditorInteraction.current
+        values.forEach { FilterChip(selected == it, { change(it) }, label = { Text(it) }, enabled = interactive) }
     }
 }
 
 @Composable
-fun Timestamp(label: String, value: Long, s: Settings, enabled: Boolean = true, change: (Long) -> Unit) {
-    val context = LocalContext.current
-    TextButton(
-        enabled = enabled,
-        onClick = {
-            val z = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
-            DatePickerDialog(
-                    context,
-                    { _, year, month, day ->
-                        TimePickerDialog(
-                                context,
-                                { _, hour, minute ->
-                                    change(
-                                        resolveEditorTime(LocalDate.of(year, month + 1, day),
-                                            hour, minute, ZoneId.systemDefault(), z.offset)
-                                    )
-                                },
-                                z.hour,
-                                z.minute,
-                                s.clock24,
-                            )
-                            .show()
-                    },
-                    z.year,
-                    z.monthValue - 1,
-                    z.dayOfMonth,
-                )
-                .show()
-        }
-    ) {
-        Text("$label: ${dateTime(value,s)}")
-    }
-}
-
-@Composable
-fun EditorLayout(
+internal fun EditorLayout(
     title: String,
     close: () -> Unit,
     save: () -> Unit,
@@ -195,25 +164,40 @@ fun EditorLayout(
     inputUnit: String? = null,
     onUnitToggle: (() -> Unit)? = null,
     unitEnabled: Boolean = true,
+    layout: EditorLayoutState? = null,
+    customizationStore: SettingsStore? = layout?.store,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val scroll = layout?.scroll ?: rememberScrollState()
+    val interactive = layout?.let { it.loaded && !it.editing } ?: true
     Column(Modifier.fillMaxSize().imePadding()) {
-        if (inputUnit != null && onUnitToggle != null)
-            EditorHeader(title, inputUnit, close, onUnitToggle, save, enabled, unitEnabled)
-        else
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Column(Modifier.fillMaxWidth().testTag("editor-sticky-header")) {
+            if (inputUnit != null && onUnitToggle != null)
+                EditorHeader(title, inputUnit, close, onUnitToggle, save, enabled && interactive, unitEnabled && interactive)
+            else
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(close) { Text("Cancel") }
+                    Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                    Button(save, enabled = enabled && interactive) { Text("Save") }
+                }
+            if (layout == null || layout.editing) customizationStore?.let { EditorLayoutToolbar(it, layout) }
+        }
+        Box(Modifier.fillMaxWidth().weight(1f).onGloballyPositioned { layout?.viewport = it.boundsInWindow() }) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp).testTag("editor-scroll-content"),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                TextButton(close) { Text("Cancel") }
-                Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                Button(save, enabled = enabled) { Text("Save") }
+                content()
+                if (layout != null && !layout.editing) customizationStore?.let {
+                    Column(Modifier.fillMaxWidth().testTag("editor-customization-footer")) {
+                        EditorLayoutToolbar(it, layout)
+                    }
+                }
             }
-        Column(
-            Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            content = content,
-        )
+        }
     }
 }
 
@@ -224,6 +208,6 @@ fun Confirm(title: String, text: String, cancel: () -> Unit, accept: () -> Unit)
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { TextButton(accept) { Text("Confirm") } },
-        dismissButton = { TextButton(cancel) { Text("Cancel") } },
+        dismissButton = { TextButton(cancel, Modifier.testTag("confirm-cancel")) { Text("Cancel") } },
     )
 }

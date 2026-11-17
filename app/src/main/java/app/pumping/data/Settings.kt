@@ -6,6 +6,9 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import app.pumping.domain.PumpReference
 import app.pumping.domain.TimerState
+import app.pumping.domain.EditorKind
+import app.pumping.domain.EditorArrangement
+import app.pumping.domain.TimePickerStyle
 import kotlinx.coroutines.flow.*
 import org.json.JSONObject
 
@@ -33,6 +36,7 @@ data class Settings(
     val expiryAlerts: Boolean = false,
     val lastExpiryAlert: Long = 0,
     val savingsPerLiter: String = "0",
+    val timePickerStyle: TimePickerStyle = TimePickerStyle.CLOCK_FACE,
 ) {
     fun days(location: String) =
         when (location) {
@@ -48,6 +52,23 @@ class SettingsStore(
     isolatedStore: DataStore<Preferences>? = null,
 ) {
     private val store = isolatedStore ?: context.pumpStore
+    // Layouts are device-local UI preferences, not imported/exported record metadata.
+    fun editorLayout(kind: EditorKind): Flow<EditorArrangement> = store.data.map {
+        EditorArrangement.decode(kind, it[stringPreferencesKey("editor-layout-${kind.key}")])
+    }.distinctUntilChanged()
+
+    suspend fun saveEditorLayout(kind: EditorKind, layout: EditorArrangement) {
+        store.edit { it[stringPreferencesKey("editor-layout-${kind.key}")] = layout.normalized(kind).encode() }
+    }
+
+    val timePickerStyle: Flow<TimePickerStyle> = store.data.map {
+        TimePickerStyle.from(it[stringPreferencesKey("timePickerStyle")])
+    }.distinctUntilChanged()
+
+    suspend fun saveTimePickerStyle(style: TimePickerStyle) {
+        store.edit { it[stringPreferencesKey("timePickerStyle")] = style.name }
+    }
+
     val settings =
         combine(store.data, dao?.legacyPreferences() ?: flowOf(null)) { stored, imported ->
             val p = stored.toMutablePreferences()
@@ -79,6 +100,7 @@ class SettingsStore(
                         ?: p[stringPreferencesKey("unit")]
                         ?: "oz",
                 clock24 = p[booleanPreferencesKey("24h")] ?: false,
+                timePickerStyle = TimePickerStyle.from(stored[stringPreferencesKey("timePickerStyle")]),
                 dark = p[booleanPreferencesKey("dark")] ?: true,
                 intervals = p[booleanPreferencesKey("intervals")] ?: true,
                 deep = p[booleanPreferencesKey("deep")] ?: false,

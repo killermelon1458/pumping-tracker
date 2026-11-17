@@ -428,3 +428,68 @@ The actual signed APK also passed independent time-wheel/clean-Cancel, immediate
 Live signed reminder checks passed: app backgrounded/killed with display locked, one notification with actual elapsed text, Snooze without opening the app, actual five-minute redelivery, Dismiss retaining a future alarm and no record/inventory mutation. Runtime notification and exact-alarm access were granted for this disposable-emulator check. Samsung sound/vibration/heads-up, battery restrictions and real-phone upgrades are not claimed from emulator testing.
 
 Stage **4B is intentionally not part of this beta**. Unsupported metadata/timing/inventory still blocks legacy export; native JSON v4 remains the complete-fidelity saved-record option. The earlier combined Stage 4 release checklist does not authorize or require implementing 4B for this owner-authorized partial-stage release. No further development begins after publication.
+
+
+## 1.4.9-dev / code 16 — History, Stash and editor-layout UX
+
+Owner-authorized usability milestone above published 1.4.8-beta; not Stage 4B. Work proceeds through three internal checkpoints with one final versioned APK.
+
+### Decisions
+
+- History hides only UNKNOWN breastfeeding text. YES/NO labels and independent baby/power/stash indicators retain their meaning; no record/category/filter/backup reinterpretation.
+- New Bag and Use Milk reuse Quick Log's independent date calendar and configurable time picker. Snapshot baselines wait for asynchronous number/quantity initialization; input-unit conversion is compared by physical quantity, incomplete drafts remain protected, and Back dismisses a time picker first. Inventory, expiry and transaction semantics are unchanged.
+- Independent keyed sections separate power, breastfeeding and pump selection instead of dragging combined cards. Each editor retains ownership of form values, timing authority, phases, allocations and errors.
+- Pinned Edit Layout toolbar; handle-only long-press drag with shared-scroll auto-scroll, lift and placement animation; accessible Up/Down. Ordinary form interactions and focus-loss commits are disabled during rearrangement. Done persists; Cancel/Back restores saved layout without closing or mutating the record draft. Reset is pending until Done.
+- Stable per-editor DataStore IDs/order/hidden sets; required sections cannot hide. Invalid encodings recover defaults; missing future sections append visibly. Layouts are **device-local**, excluded from unchanged native JSON v4. Room remains 6, original iOS import/export behavior unchanged.
+- Hidden breastfeeding defaults to UNKNOWN for a fresh session. Existing meaningful breastfeeding, pump, power/interval, notes and stash information overrides hidden preferences for that edit. Hiding unsaved values never erases them.
+
+### Internal verification
+
+- [x] Phase 1: 310 debug unit tests and 8 focused API 36.1 emulator tests passed. Initial test-selector ambiguities and synthetic usage-before-storage fixture were corrected; production inventory validation remained intact.
+- [x] Phase 2: independent-section definition test and 31 emulator duration/power/stash regression tests passed before customization began.
+- [x] Phase 3 and picker amendment: full unit/UI/tooling/lint, synthetic 1.4.8→1.4.9 in-place upgrade, APK metadata/signature/checksum verification completed; results below.
+- [x] Owner physically accepted 1.4.9 functionality; remaining visual/organizational corrections are addressed in the separately versioned 1.4.10 milestone below.
+
+No intermediate development artifact is distributed. Retain older immutable APKs. Prepare source/tests/docs for review only; do not commit, tag, push or publish. Stage 4B remains deferred and no new public beta is authorized.
+
+
+### Owner amendment — Global configurable time picker (same 1.4.9 milestone)
+
+No 1.4.9 APK had been finalized/distributed; retain code 16 and build the complete scope once. This supersedes a wheels-only default without removing the accepted wheel implementation.
+
+- Global DataStore preference defaults to **Clock face** when absent/invalid. **Scroll wheels** remains selectable from a menu beside Edit Layout, outside section-reordering mode. The choice also appears in Next Pump. It is independent of per-editor layouts, record dirty state and 12/24-hour format.
+- Native clock mode is explicitly themed to request the dial rather than OEM-default spinners. Wheels retain their existing gestures, AM/PM rules and responsive fallback. Both share a saved temporary hour/minute draft; Done commits once through existing `editorTime`, Cancel/Back commits nothing. Date selection is independent and uses unchanged `editorDate`/DST/precision rules.
+- Suppress focus-loss commits while the customization menu is open, so choosing presentation cannot finalize a pending power-phase draft. Layout reset/cancel and backup imports leave the global picker preference alone.
+- Quick Log/Edit Pump, New Bag, Use Milk, Next Pump and Quick Log reminder controls use the preference. Reminder timestamps now use independent date/time controls; no scheduling, interval, timestamp, volume or inventory calculation change.
+- Like layout preferences, this presentation setting remains device-local and outside native v4. Room remains 6; original iOS format/export behavior is unchanged and Stage 4B remains deferred.
+- Pre-amendment verification (327 debug + 327 release unit, 102 UI, 13 tooling, lint 0 errors / 20 existing warnings) is historical only. The amended source needs complete rerun plus actual 1.4.8-dev upgrade and final identity/signature/SHA-256 checks. Results belong in the final build report, not inferred from the earlier internal candidate.
+
+### Final 1.4.9 verification and delivery
+
+- **337/337 debug and 337/337 release unit tests passed**, including API 26/35 persistence/preference coverage. **117/117 API 36.1 emulator/Compose tests passed** on the final source, with zero failures/errors/skips; 39 additional UI cases cover stash parity, layouts/drag/autoscroll, both picker styles and their shared draft. **13/13 Python tooling tests passed**. Debug/release lint each report **0 errors / 20 existing warnings**.
+- An existing pump-selector timing test was synchronized with the Room-backed profile flow and uses the actual accessibility click action to avoid an IME-resize touch-target race. Separate profile workflows retain touch selection coverage. The final complete suite passed after this test-only adjustment; no application behavior was weakened to accommodate the test.
+- Actual standard-debug-signed **1.4.8-dev/code 15 → 1.4.9-dev/code 16** in-place upgrade passed on a disposable read-only API 36.1 emulator, using `adb install -r` without clearing/uninstalling during the upgrade. All tables stayed identical: 7 sessions, 4 bags, 7 movements, 3 deletion markers, 1 pump and 5 phases, plus raw iOS metadata, notes, split quantities, links and balances. Native v4 export comparisons, repeated native/iOS merge imports, clean stash cancellation and cold restart passed. New layout and global-picker preferences survived restart. Only synthetic data was used.
+- Both presentations were checked at normal size and 1.6 font scale, including landscape. The native landscape clock uses its stock compact layout (without an extra visible title) so Done/Cancel fit; an accessibility pane title retains timestamp context. Physical Samsung ergonomics/keyboard/theme/drag acceptance remains pending.
+- Version-derived staging produced `dev-builds/1.4.9-dev/Pumping-1.4.9-dev.apk`, SHA-256 **`17bba77f81a16248660899aed71e2f1659b5b7a7a0c42a60c447377a1c226e0a`**, identical to the upgrade-tested candidate. Verified embedded 1.4.9-dev/code 16, `dev.killermelon1458.pumping.debug`, Pumping Dev, API 26/36/37, debuggable/not test-only, valid unchanged debug certificate. Local `BUILD_INFO.md` and verification evidence accompany it.
+- Room 6, native JSON v4, legacy format/export behavior and production signing/identity remain unchanged. Layouts and picker style are intentionally device-local and excluded from backups. Historical Unknown values are unchanged. Previous development and published beta APK hashes are unchanged. No owner/production data was touched; emulator checks are not physical-device acceptance.
+
+All three phases and the picker amendment are ready for owner review. Relevant source/tests/docs are staged only; no commit/tag/push/publication. **Stage 4B remains deferred.**
+
+## 1.4.10-dev / code 17 — Editor organization correction
+
+Owner physically accepted all 1.4.9 functionality. Preserve its APK/checksum and cumulative staged source. This revision changes presentation only: move the exact compact customization buttons to the scrollable footer in all three editors; retain sticky Save/Cancel; consolidate section controls as checkbox → name → Up → Down → rightmost handle. Required checkbox is disabled/checked, long names ellipsize, 48 dp action targets and accessibility labels remain. Keep layout-mode Reset/Done/Cancel, drag/autoscroll/animations, form state, DataStore encodings, Room 6, native v4 and all calculations unchanged. Stage 4B stays deferred.
+
+Verification and artifact results will be recorded after the focused and regression suites complete. No commit/tag/push/publication; stop for owner physical review.
+
+### 1.4.10 verification and delivery
+
+- **337 debug + 337 release unit tests**, **13 tooling tests** passed; debug/release lint each **0 errors / 20 existing warnings**.
+- **122 distinct emulator/Compose cases have passing results**: final full sweep 121/122, then all 10 picker workflows passed after correcting a test helper that tried to scroll the unchanged sticky reminder control. No APK source change for that correction. Earlier test waits/selectors were updated for async completion, unselected bags and footer scrolling. Local reports retain actual invocation counts; a single full 122/122 pass is not claimed.
+- New tests verify all three real-editor footers, ancestry outside sticky header, side-by-side placement after fields, unchanged clean cancellation, horizontal five-control order/rightmost handle, required visibility lock and 1.8 font scale. Existing drag/autoscroll, saved-layout/recreation, hidden-data and form-draft checks passed.
+- Actual debug-signed **1.4.9/code16 → 1.4.10/code17** update passed on disposable API36.1 without uninstall/data clear during upgrade. All table values preserved: 7 sessions, 4 bags, 7 movements, 3 deletion markers, 1 profile, 5 phases. Saved custom visibility and global picker style, reminders, native v4 exports, repeated native/iOS merge imports and cold restart preserved. Only synthetic data; no production phone touched.
+- Version-derived APK `dev-builds/1.4.10-dev/Pumping-1.4.10-dev.apk`, SHA-256 **`008af286e60c66382ac638a13bc94d34eff66f0890ab8779f310fed66ca70af6`**. Identity/code/SDK/debug signature verified; same bytes as upgrade-tested candidate. Accepted 1.4.9 APK/hash and published beta remain unchanged. Local build report and screenshots accompany artifact.
+- Screenshots visually confirm compact footer and one-row controls. Owner physical acceptance of 1.4.10 is pending. Room 6/native v4 unchanged; no Stage4B, commit, tag, push or publication. Cumulative 33-file checkpoint is prepared for review only.
+
+## Owner-authorized 1.4.10-beta promotion
+
+The owner physically accepted 1.4.10-dev/code 17, including both editor organization corrections and the cumulative 1.4.9 features. Phase A prepares/commits this complete checkpoint and release documentation, runs targeted unsigned preflight only, and stops for owner-local signing. Reuse documented 337 debug + 337 release unit, 122 distinct UI, 13 tooling and lint results; no full campaign is repeated. Phase B must verify the permanent certificate and production identity, signed in-place 1.4.8-beta upgrade with synthetic data, restart/preferences/relationships and focused fresh-install editor/picker checks before tag/push/prerelease publication. Stage 4B and 1.5.0 remain deferred. Physical development acceptance does not imply a production-phone upgrade test.

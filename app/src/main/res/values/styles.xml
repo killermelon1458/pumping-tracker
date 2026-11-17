@@ -9,4 +9,15 @@
     <item name="android:textColorPrimary">#202022</item>
     <item name="android:textColorSecondary">#50474B</item>
 </style>
+<style name="PumpingClockDark" parent="android:style/Theme.Material.Dialog.Alert">
+    <item name="android:colorAccent">#EA63A6</item>
+    <item name="android:timePickerStyle">@style/PumpingClockWidget</item>
+</style>
+<style name="PumpingClockLight" parent="android:style/Theme.Material.Light.Dialog.Alert">
+    <item name="android:colorAccent">#9F2864</item>
+    <item name="android:timePickerStyle">@style/PumpingClockWidget</item>
+</style>
+<style name="PumpingClockWidget" parent="android:style/Widget.Material.TimePicker">
+    <item name="android:timePickerMode">clock</item>
+</style>
 </resources>

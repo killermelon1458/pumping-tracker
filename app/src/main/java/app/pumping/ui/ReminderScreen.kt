@@ -1,6 +1,7 @@
 package app.pumping.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,6 +27,8 @@ fun ReminderScreen(
                 ?: nextReminder(now, s.reminderMinutes)
         )
     }
+    var expandedTime by rememberSaveable { mutableStateOf(false) }
+    BackHandler { if (expandedTime) expandedTime = false else close() }
     EditorLayout(
         "Next Pump",
         close,
@@ -36,6 +39,8 @@ fun ReminderScreen(
                 close()
             }
         },
+        enabled = !expandedTime,
+        customizationStore = vm.store,
     ) {
         CardBlock {
             Text(
@@ -43,7 +48,8 @@ fun ReminderScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Timestamp("Remind at", time, s) { time = it }
+            SessionTimestamp("Remind at", time, s, expandedTime, true,
+                { expandedTime = false }, { expandedTime = !expandedTime }, { expandedTime = false }) { time = it }
             Row {
                 listOf(15, 30, 60).forEach { m ->
                     TextButton({ time += m * 60000L }) { Text("+$m min") }

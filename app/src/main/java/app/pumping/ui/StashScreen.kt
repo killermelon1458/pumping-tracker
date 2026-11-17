@@ -181,19 +181,28 @@ fun StashScreen(
 
 @Composable
 fun BagEditor(vm: PumpViewModel, s: Settings, close: () -> Unit) {
+    val layout = rememberEditorLayout(EditorKind.BAG, vm.store)
     var inputUnit by rememberSaveable { mutableStateOf(s.inputUnit) }
     var amount by rememberSaveable { mutableStateOf("") }
     var location by rememberSaveable { mutableStateOf("Fridge") }
     var time by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var notes by rememberSaveable { mutableStateOf("") }
-    var number by remember { mutableIntStateOf(1) }
+    var number by rememberSaveable { mutableIntStateOf(1) }
+    var ready by rememberSaveable { mutableStateOf(false) }
+    var initialSnapshot by rememberSaveable { mutableStateOf<EditorSnapshot?>(null) }
+    var expandedTime by rememberSaveable { mutableStateOf(false) }
     var discard by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { number = vm.repo.dao.nextNumber() }
-    BackHandler { discard = true }
+    fun snapshot() = EditorSnapshot(listOf(normalizedVolume(amount,inputUnit),location,time.toString(),notes))
+    LaunchedEffect(Unit) {
+        if (!ready) { number = vm.repo.dao.nextNumber(); ready = true }
+        if (initialSnapshot == null) initialSnapshot = snapshot()
+    }
+    fun requestClose() { if (layout.editing) layout.cancel() else if (initialSnapshot == null || initialSnapshot == snapshot()) close() else discard = true }
+    BackHandler { if (expandedTime) expandedTime = false else requestClose() }
     EditorLayout(
         "New Bag",
-        { discard = true },
+        { requestClose() },
         {
             vm.launch {
                 busy = true
@@ -214,9 +223,10 @@ fun BagEditor(vm: PumpViewModel, s: Settings, close: () -> Unit) {
                 }
             }
         },
-        !busy && (runCatching { Volume.parse(amount, inputUnit) }.getOrDefault(0) > 0),
+        !busy && ready && !expandedTime && (runCatching { Volume.parse(amount, inputUnit) }.getOrDefault(0) > 0),
         inputUnit = inputUnit,
-        unitEnabled = !busy,
+        layout = layout,
+        unitEnabled = !busy && ready,
         onUnitToggle = {
             busy = true
             vm.launch {
@@ -232,32 +242,38 @@ fun BagEditor(vm: PumpViewModel, s: Settings, close: () -> Unit) {
             }
         },
     ) {
-        CardBlock {
-            Text("Bag Number", fontWeight = FontWeight.Bold)
-            Text(
-                "#$number",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Text(
-                "Write this number on your bag. Assigned atomically when saved.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Timestamp("Date", time, s) { time = it }
-        Field("Volume (${inputUnit})", amount, { amount = it }, true)
-        CardBlock {
-            Text("Location")
-            Choices(
-                if (s.deep) listOf("Fridge", "Freezer", "Deep Freezer")
-                else listOf("Fridge", "Freezer"),
-                location,
-            ) {
-                location = it
+        if (!ready) { Text("Loading bag…"); return@EditorLayout }
+        EditorSections(layout) { section ->
+            when (section) {
+                "identity" -> CardBlock {
+                    Text("Bag Number", fontWeight = FontWeight.Bold)
+                    Text(
+                        "#$number",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    Text(
+                        "Write this number on your bag. Assigned atomically when saved.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                "timestamp" -> SessionTimestamp("Date", time, s, expandedTime, !busy,
+                    { expandedTime = false }, { expandedTime = !expandedTime }, { expandedTime = false }) { time = it }
+                "volume" -> Field("Volume (${inputUnit})", amount, { amount = it }, true)
+                "storage" -> CardBlock {
+                    Text("Location")
+                    Choices(
+                        if (s.deep) listOf("Fridge", "Freezer", "Deep Freezer")
+                        else listOf("Fridge", "Freezer"),
+                        location,
+                    ) {
+                        location = it
+                    }
+                    Text("Estimated expiry: ${dayOf(expiry(time,s.days(location)))}")
+                }
+                "notes" -> Field("Notes (optional)", notes, { notes = it }, lines = 3)
             }
-            Text("Estimated expiry: ${dayOf(expiry(time,s.days(location)))}")
         }
-        Field("Notes (optional)", notes, { notes = it }, lines = 3)
     }
     if (discard)
         Confirm(
@@ -276,6 +292,12 @@ fun UsageEditor(
     initial: String?,
     close: () -> Unit,
 ) {
+    val layout = rememberEditorLayout(EditorKind.USAGE, vm.store)
+    var inputUnit by rememberSaveable { mutableStateOf(s.inputUnit) }
+    var initialSnapshot by rememberSaveable { mutableStateOf<EditorSnapshot?>(null) }
+    var quantityFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var defaultQuantity by rememberSaveable { mutableLongStateOf(0) }
+    var expandedTime by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf(initial ?: "") }
     var amount by rememberSaveable { mutableStateOf("") }
     var reason by rememberSaveable { mutableStateOf("Feeding") }
@@ -284,16 +306,35 @@ fun UsageEditor(
     var discard by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val bag = bags.find { it.bag.id == selected }
-    LaunchedEffect(selected) { bag?.let { amount = Volume.format(it.remaining, s.inputUnit, 5) } }
-    BackHandler { discard = true }
+    fun snapshot(): EditorSnapshot {
+        val quantity = if ((selected.isEmpty() && amount.isEmpty()) ||
+            runCatching { Volume.parse(amount,inputUnit) == defaultQuantity }.getOrDefault(false)) "default-quantity"
+            else normalizedVolume(amount,inputUnit)
+        return EditorSnapshot(listOf(selected,quantity,reason,notes,time.toString()))
+    }
+    LaunchedEffect(selected, bag?.bag?.id) {
+        if (quantityFor != selected && (selected.isEmpty() || bag != null)) {
+            defaultQuantity = bag?.remaining ?: 0
+            amount = bag?.let { Volume.format(it.remaining,inputUnit,5) } ?: ""
+            quantityFor = selected
+        }
+        if (initialSnapshot == null && quantityFor == selected) initialSnapshot = snapshot()
+    }
+    LaunchedEffect(s.inputUnit) {
+        if (s.inputUnit != inputUnit) runCatching { Volume.convertInput(amount,inputUnit,s.inputUnit) }.onSuccess {
+            amount = it; inputUnit = s.inputUnit
+        }
+    }
+    fun requestClose() { if (layout.editing) layout.cancel() else if (initialSnapshot == null || snapshot() == initialSnapshot) close() else discard = true }
+    BackHandler { if (expandedTime) expandedTime = false else requestClose() }
     EditorLayout(
         "Use Milk",
-        { discard = true },
+        { requestClose() },
         {
             vm.launch {
                 busy = true
                 try {
-                    vm.repo.useBag(selected, Volume.parse(amount, s.inputUnit), reason, time, notes)
+                    vm.repo.useBag(selected, Volume.parse(amount, inputUnit), reason, time, notes)
                     vm.app.reminders.restore(vm.app)
                     close()
                 } finally {
@@ -301,34 +342,44 @@ fun UsageEditor(
                 }
             }
         },
-        !busy &&
+        !busy && initialSnapshot != null && !expandedTime &&
             bag != null &&
-            runCatching { Volume.parse(amount, s.inputUnit) }.getOrDefault(0) > 0,
+            runCatching { Volume.parse(amount, inputUnit) }.getOrDefault(0) > 0,
+        layout = layout,
     ) {
-        CardBlock {
-            Text("Bag Number")
-            if (bags.none { it.remaining > 0 }) Text("No milk available. Add a bag first.")
-            bags
-                .filter { it.remaining > 0 }
-                .forEach { b ->
-                    FilterChip(
-                        selected == b.bag.id,
-                        { selected = b.bag.id },
-                        label = {
-                            Text(
-                                "#${b.bag.number} · ${quantity(b.remaining,s)} · ${b.bag.location}"
+        if (initialSnapshot == null) { Text("Loading bag…"); return@EditorLayout }
+        EditorSections(layout) { section ->
+            when (section) {
+                "bag" -> CardBlock {
+                    Text("Bag Number")
+                    if (bags.none { it.remaining > 0 }) Text("No milk available. Add a bag first.")
+                    bags
+                        .filter { it.remaining > 0 }
+                        .forEach { b ->
+                            FilterChip(
+                                selected == b.bag.id,
+                                { selected = b.bag.id; defaultQuantity = b.remaining; amount = Volume.format(b.remaining,inputUnit,5); quantityFor = selected },
+                                label = {
+                                    Text(
+                                        "#${b.bag.number} · ${quantity(b.remaining,s)} · ${b.bag.location}"
+                                    )
+                                },
                             )
-                        },
-                    )
+                        }
                 }
+                "quantity" -> Column {
+                if (bag != null) {
+                    Field("Use quantity (${inputUnit})", amount, { amount = it }, true)
+                    Text("Partial withdrawals are supported. Remaining: ${quantity(bag.remaining,s)}.")
+                }
+                    if (bag == null) Text("Select a bag to enter a quantity.")
+                }
+                "reason" -> Choices(listOf("Feeding", "Donation", "Other", "Discard"), reason) { reason = it }
+                "timestamp" -> SessionTimestamp("Date", time, s, expandedTime, !busy,
+                    { expandedTime = false }, { expandedTime = !expandedTime }, { expandedTime = false }) { time = it }
+                "notes" -> Field("Notes (optional)", notes, { notes = it }, lines = 3)
+            }
         }
-        if (bag != null) {
-            Field("Use quantity (${s.inputUnit})", amount, { amount = it }, true)
-            Text("Partial withdrawals are supported. Remaining: ${quantity(bag.remaining,s)}.")
-        }
-        Choices(listOf("Feeding", "Donation", "Other", "Discard"), reason) { reason = it }
-        Timestamp("Date", time, s) { time = it }
-        Field("Notes (optional)", notes, { notes = it }, lines = 3)
     }
     if (discard)
         Confirm("Discard usage draft?", "No milk has been removed yet.", { discard = false }, close)

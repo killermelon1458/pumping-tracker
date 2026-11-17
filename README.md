@@ -4,10 +4,11 @@ Pumping is an independently developed, native Android application for logging br
 
 **Status: beta / pre-release.** Pumping is under active development. Samsung One UI notification/battery behavior and production-phone upgrades still require device-specific validation; automated emulator tests do not establish those results.
 
-Beta **1.4.8-beta** (code **15**) promotes the accepted **1.4.8-dev** milestone without a revision increment, adding combined statistics filters and pump/breastfeeding-context comparisons while retaining independent date/time wheels, semantic discard detection, immediate Duration synchronization, power-pump editing, and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [1.4.8 beta release notes](docs/releases/1.4.8-beta.md) and [development versioning](DEVELOPMENT.md).
+The **1.4.10-beta** revision (code **17**) adds customizable editor sections, a global Clock face / Scroll wheels preference, Stash timestamp/discard improvements, and cleaner breastfeeding history. It retains the statistics filters/comparisons, Quick Log timing, pump profiles and power-pump features from 1.4.8-beta, Room schema 6 and native backup v4. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [1.4.10 beta release notes](docs/releases/1.4.10-beta.md), [editor customization](docs/EDITOR_LAYOUTS.md) and [development versioning](DEVELOPMENT.md).
 
 ## Features
 
+- Independent, device-local editor layouts with optional sections, drag/accessibility reordering, and global Clock face / Scroll wheels selection.
 - Timed and manually logged pumping sessions, editable history, notes, optional left/right volumes, and explicit Yes/No/Not specified breastfeeding context.
 - Power-pump classification with optional ordered pumping/rest intervals and separate active/elapsed timing.
 - My Pumps profiles with optional details, archive support, and quick session selection.
@@ -51,20 +52,20 @@ From the repository root:
 ./gradlew :app:assembleDebug
 ```
 
-Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
+Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.10-dev/Pumping-1.4.10-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
 
 ## Install or upgrade the beta
 
-Download `Pumping-1.4.8-beta.apk` and its checksum from the [GitHub prerelease](https://github.com/killermelon1458/pumping-tracker/releases/tag/v1.4.8-beta). Export a private JSON safety backup, then install over the production app **without uninstalling or clearing data**. The production ID and permanent certificate match 1.4.0-beta.1; Room migrations 3→4→5→6 preserve existing records. Production-signed upgrade testing used a disposable emulator with synthetic data, not a family phone.
+Download a signed production APK and its checksum from the [GitHub prereleases](https://github.com/killermelon1458/pumping-tracker/releases). The 1.4.10 asset name is `Pumping-1.4.10-beta.apk`; release publication requires signature and signed-upgrade verification. Export a private JSON safety backup, then install over the production app **without uninstalling or clearing data**. Public updates retain the permanent production ID/certificate. Room remains schema 6 in 1.4.10; earlier 3→4→5→6 migrations remain available. Test reports distinguish disposable-emulator upgrades from actual production-phone testing.
 
-The development app is a separate installation. Native JSON v4 preserves saved records, profiles, phases, context, inventory and deletion history; supported preference restoration does not activate live reminders. Legacy export limitations are described above.
+Editor layouts and picker style are device-local and are not included in native JSON or iOS backups. Missing picker preferences default to Clock face. The development app is a separate installation. Native JSON v4 preserves saved records, profiles, phases, context, inventory and deletion history; supported preference restoration does not activate live reminders. Legacy export limitations are described above.
 
 ## Install for development
 
 Use a disposable test device or emulator with USB debugging enabled:
 
 ```bash
-adb install -r dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk
+adb install -r dev-builds/1.4.10-dev/Pumping-1.4.10-dev.apk
 ```
 
 An update must use the same application ID and signing certificate to preserve the installation. Do not uninstall an installation containing real records without first exporting a backup. Debug APKs are for development; they are not signed beta/production releases. Generated APKs and local `dev-builds/` / `test-builds/` deliveries are intentionally not part of the source repository.

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Pumping</string>
+    <string name="time_picker_done">Done</string>
 </resources>
