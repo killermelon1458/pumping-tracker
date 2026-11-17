@@ -4,7 +4,7 @@ Pumping is an independently developed, native Android application for logging br
 
 **Status: beta / pre-release.** This is a source project under active development, not a published production release. Physical-device validation, particularly Samsung One UI notifications and background battery restrictions, remains part of beta preparation.
 
-The current public beta is **1.4.0-beta.1** (code **7**). The current development revision is **1.4.7-dev** (code **14**), adding independent date/time pickers, native time wheels, and semantic discard detection while retaining immediate Duration synchronization, power-pump editing, and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [development versioning](DEVELOPMENT.md).
+The current public beta is **1.4.0-beta.1** (code **7**). The current development revision is **1.4.8-dev** (code **15**), adding combined statistics filters and pump/breastfeeding-context comparisons while retaining independent date/time wheels, semantic discard detection, immediate Duration synchronization, power-pump editing, and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [development versioning](DEVELOPMENT.md).
 
 ## Features
 
@@ -12,7 +12,7 @@ The current public beta is **1.4.0-beta.1** (code **7**). The current developmen
 - Power-pump classification with optional ordered pumping/rest intervals and separate active/elapsed timing.
 - My Pumps profiles with optional details, archive support, and quick session selection.
 - Milk stash bags with storage locations, expiry estimates, partial withdrawals, transaction history and confirmed deletion of linked records.
-- Statistics calculated from saved sessions and inventory transactions.
+- Statistics calculated from saved sessions and inventory transactions, with combined date/pump/breastfeeding/mode filters, mean/median volumes, aggregate active/known-elapsed rates and comparisons. Stash analytics stays independent.
 - Reminders with Snooze and Dismiss, reboot recovery, optional precise alarms and an inexact fallback.
 - A saved Start/End reference for elapsed time, history intervals and automatic reminders; Start is the default.
 - Independent oz/mL input and display units, with quantity-preserving editor toggles.
@@ -51,14 +51,14 @@ From the repository root:
 ./gradlew :app:assembleDebug
 ```
 
-Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.7-dev/Pumping-1.4.7-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
+Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
 
 ## Install for development
 
 Use a disposable test device or emulator with USB debugging enabled:
 
 ```bash
-adb install -r dev-builds/1.4.7-dev/Pumping-1.4.7-dev.apk
+adb install -r dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk
 ```
 
 An update must use the same application ID and signing certificate to preserve the installation. Do not uninstall an installation containing real records without first exporting a backup. Debug APKs are for development; they are not signed beta/production releases. Generated APKs and local `dev-builds/` / `test-builds/` deliveries are intentionally not part of the source repository.
@@ -91,7 +91,7 @@ The test runner uses synthetic fixtures and isolated storage. Tests cover calcul
 - `app/schemas/`: exported Room schemas needed for migration review and testing.
 - `gradle/wrapper/`: required Gradle wrapper files.
 
-[Deletion and bag numbering](DELETION_BEHAVIOR.md), [backup compatibility](LEGACY_COMPATIBILITY.md), and [reminders](REMINDERS.md) describe the implemented behavior. The iOS format identifiers retained in the compatibility code are wire-format requirements, not the Android application's branding. Code and Android artwork are independently implemented.
+[Statistics definitions and filters](STATISTICS.md), [deletion and bag numbering](DELETION_BEHAVIOR.md), [backup compatibility](LEGACY_COMPATIBILITY.md), and [reminders](REMINDERS.md) describe the implemented behavior. The iOS format identifiers retained in the compatibility code are wire-format requirements, not the Android application's branding. Code and Android artwork are independently implemented.
 
 ## License
 

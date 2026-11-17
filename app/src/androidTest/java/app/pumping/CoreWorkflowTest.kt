@@ -22,7 +22,7 @@ class CoreWorkflowTest {
         val baseline = runBlocking {
             app.settings.string("unit", "oz")
             app.repository.dao.allSessions().filter {
-                dayOf(it.start) >= LocalDate.now().minusDays(6) &&
+                dayOf(it.start) >= LocalDate.now().minusDays(29) &&
                     dayOf(it.start) <= LocalDate.now()
             }
         }
@@ -67,10 +67,9 @@ class CoreWorkflowTest {
             )
             .performScrollTo()
             .assertIsDisplayed()
-        compose
-            .onNodeWithText(
-                "${baseline.size + 1} sessions · ${baseline.sumOf { it.activeSeconds } / 60 + 20} active minutes"
-            )
-            .assertIsDisplayed()
+        compose.onNodeWithTag("stats-count").assertTextEquals("${baseline.size + 1} sessions")
+        val minutes=java.math.BigDecimal(baseline.sumOf { it.activeSeconds } + 1200)
+            .divide(java.math.BigDecimal(60),2,java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+        compose.onNodeWithText("Active pumping time: $minutes min").performScrollTo().assertIsDisplayed()
     }
 }

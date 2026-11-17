@@ -27,6 +27,8 @@ import kotlinx.coroutines.delay
 fun PumpingRoot(vm: PumpViewModel) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val pumps by vm.pumps.collectAsStateWithLifecycle()
+    val phases by vm.phases.collectAsStateWithLifecycle()
     val detailedSessionIds by vm.detailedSessionIds.collectAsStateWithLifecycle()
     val bags by vm.bags.collectAsStateWithLifecycle()
     val movements by vm.movements.collectAsStateWithLifecycle()
@@ -138,7 +140,7 @@ fun PumpingRoot(vm: PumpViewModel) {
                                     sheet = "detail"
                                 },
                             )
-                        2 -> StatsScreen(sessions, bags, movements, s, now, { sheet = "goal" })
+                        2 -> StatsScreen(sessions, bags, movements, s, now, { sheet = "goal" }, pumps, phases)
                         3 -> ProfileScreen(vm, s, requestNotification, { sheet = it })
                     }
                 }

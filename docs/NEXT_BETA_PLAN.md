@@ -1,8 +1,8 @@
 # Pumping — Next Beta Feature Plan
 
-**Status:** Stage 1 accepted; Stage 2 baseline `v1.4.3-dev` (`c1e613a`). Stage 3 1.4.4-dev failed owner physical-device UX acceptance. The 1.4.5-dev correction exposed a physical-device duration synchronization regression. The owner physically tested and accepted 1.4.6-dev/code 13 on 16 November 2026, completing Stage 3. Stage 4 remains unauthorized.
+**Status:** Stages 1–3 and the 1.4.7 UX milestone accepted. Stage **4A statistics only** is authorized by the owner; Stage **4B legacy export** remains unauthorized until separate acceptance/approval.
 **Current public baseline:** `1.4.0-beta.1` (`versionCode 7`).
-**Development baseline:** Accepted Stage 3 `1.4.6-dev` / code 13, commit `d08e865`, annotated local tag `v1.4.6-dev`. Current additional UX milestone: `1.4.7-dev` / code 14; Stage 4 remains unauthorized.
+**Development baseline:** Accepted `1.4.7-dev` / code 14, commit `40c8e04f91484ca513c41ad9fa8ebb8eb65caf04`, tag `v1.4.7-dev`. Current milestone: `1.4.8-dev` / code 15.
 **Location in repository:** `docs/NEXT_BETA_PLAN.md`.
 **Related policy:** `docs/VERSIONING.md` and root `AGENTS.md` take precedence for release/version/artifact conventions.
 
@@ -82,6 +82,8 @@ Choose the simplest defensible Room representation, including nullable foreign k
 **Acceptance:** Normal Quick Log unchanged with toggle off. Toggle-only records work without filling phases. Preset produces 40 min active / 60 min elapsed. Custom phases, editing, midnight transitions, validation, backup round-trip, and session deletion all work. Existing timer pause behavior and reminders remain intact. STOP.
 
 ## Stage 4 — Filterable statistics + legacy export policy + final integration
+
+**Current authorization split:** Implement statistics as **Stage 4A** only. Legacy export preview/lossy-policy changes are **Stage 4B**, deferred until owner physical-device acceptance and separate authorization. The historical combined acceptance below describes eventual full Stage 4, not this partial delivery.
 
 **Primary user goal:** Compare like-for-like pumping outcomes without an explosion of single-purpose statistic rows.
 
@@ -379,6 +381,35 @@ Part 1 was completed before any 1.4.7 feature edits: committed accepted 1.4.6-de
 - [x] `:app:assembleDebug` automatically staged and independently verified the APK: **1.4.7-dev/code 14**, debug package/label, API 26 minimum / 36 target / 37 compile, unchanged debug signing certificate. SHA-256: `762cf3d7e3e58f16efd23fc1c11289e03fa224af944ee2beec59a196d445b295`.
 - [x] Actual APK **1.4.6→1.4.7 in-place upgrade** passed on a fresh read-only API 36.1 emulator without uninstall/clear-data: every stored table was identical after upgrade; reopening/saving synthetic basic and detailed sessions preserved all data except expected updated timestamps; five phase IDs/order/totals, context, pump, stash ledger, mL preference and cold restart survived. Published production beta and Dev coexisted under distinct UIDs with independent synthetic records.
 - [x] Additional actual-APK display check passed at normal size, font scale **1.6**, and landscape plus font scale **1.6**: native wheels and Done/Cancel remained visible; screenshots were visually inspected for clipping, and dismissing the picker/editor required no false discard warning. Screenshots/results stay local in the version directory.
-- [ ] Owner physical Samsung review remains pending. No claim of physical-device acceptance for this revision.
+- [x] Owner accepted 1.4.7 as the development baseline for Stage 4A, committed/tagged `40c8e04` / `v1.4.7-dev`. This records owner acceptance; no additional device observations are invented.
 
 The accepted 1.4.6 APK remains byte-identical (`3439d663f9eb044015a9c5047e7fdddc26ce2c5c5620b3e655b682e156c0db67`). New version: **1.4.7-dev/code 14**, ID **dev.killermelon1458.pumping.debug**, label **Pumping Dev**, staged by the existing workflow under `dev-builds/1.4.7-dev/`. New source is to be staged for review only; no 1.4.7 commit/tag, push, publication or production signing. Stop for owner physical-device review. Stage 4 remains unauthorized.
+
+
+## Stage 4A — Filterable statistics (1.4.8-dev / code 15)
+
+**Scope:** Statistics only, above accepted `40c8e04` / `v1.4.7-dev`. Stage 4B legacy-export changes are explicitly deferred; no lossy-export preview or safety-rule changes belong in this milestone.
+
+### Implementation decisions
+
+- Retain the existing Stats journey streak, countdown/goal editor, daily output chart, previous-period comparison/navigation, discoveries, left/right information, Stash ledger analytics, current inventory and feeding savings. Streak/goal describe the whole journey. All-time feeding savings and Stash analytics remain independent of pump-specific filters.
+- Pump analytics default to **Last 30 days**, all pumps, all breastfeeding contexts, all modes. An expandable in-page panel supports Last 7 / Last 30 / All time / inclusive Custom dates, one or multiple pump IDs (including archived profiles and explicit Unspecified), Yes / No / Not specified context, and Normal / Power Pump / Not specified mode. All predicates combine with **AND**. Active selections remain visible and Reset restores defaults. Filters survive tab/activity recreation through saved UI state, not new database/settings fields.
+- Date membership uses the parent's **start timestamp** in the device's current local time zone: inclusive first local midnight, exclusive midnight after the final date. Session milk is assigned once to its start date, including midnight-crossing sessions. Rolling 7/30-day and custom windows navigate in equal-length calendar-day blocks; previous-period totals use identical non-date filters. All time includes every saved timestamp, including intentional future records. Invalid custom date order shows an error/empty result rather than silently applying all time.
+- Reusable pure Kotlin `Statistics.kt` filters and aggregates parent sessions separately from Compose. Stable parent IDs are deduplicated defensively. Quantities stay integer microliters; BigDecimal calculates fractional means, even medians and rates without mutating records. The shared volume formatter accepts decimal canonical values and uses the existing exact US-fluid-ounce conversion and Display Units.
+- Summary: count, total, mean/median volume. Efficiency: total/mean active time, aggregate milk per pumping minute, recorded left/right totals/sample count, known elapsed time/rate and eligible-session sample count. Empty means/rates are **N/A**, not zero; a true zero-volume result remains zero. Small samples (1–4) are cautioned.
+- Active rate = sum of parent milk / sum of recorded active minutes, never the mean of per-session rates. Elapsed rate uses **both milk and elapsed time from the same eligible subset**. Reuse `actualElapsedMillis`: exclude elapsedKnown=false and phase-less manual power pumps even if their flag is true; complete validated power phases and recorded paused timers are eligible. Invalid timing is excluded from elapsed measurements without changing records. Phases never count as sessions or supply milk volumes.
+- Comparisons group the same filtered cohort by stable pump ID or breastfeeding context. Current nickname/archive metadata is used consistently; rename/archive never changes attribution. Pump selection is multi-select. Context groups show all three legitimate categories, including zero samples. No ranking, intake inference, or causal effectiveness claim; explain sample/context/time-of-day differences. Optional pump-category/time-of-day controls are not added in this focused stage; the model remains available for future approved extensions.
+- Charts follow active Pump filters; ranges longer than 62 days and All time use chronological monthly totals to bound chart work. Ordinary short ranges retain daily bars and correct per-date counts across month boundaries. Stash retains its original separate Week / calendar Month / All controls and inventory/ledger totals.
+- Room remains **6**, native JSON **v4**, migrations/imports/deletion history/signing/identities unchanged. Add only a read-only Room phase Flow for existing rows. No editor, timer, stash transaction, reminder or legacy-export behavior changes.
+
+### Verification / acceptance
+
+- [x] **310/310 debug unit and 310/310 release unit tests passed**, including 20 new pure statistics cases and all existing migration/native/legacy/timer/inventory/reminder regressions. Added combined predicates, local-midnight/DST/time-zone boundaries, exact mean/median and aggregate rates, eligible-only elapsed numerator/denominator, split quantities, zero/empty, archived/renamed ID attribution, deduplicated parent counting and realistic Spectra/Momcozy cohort tests.
+- [x] Full disposable API 36.1 emulator suite **78/78 passed**, no skips/errors/failures (68 prior workflows + 8 statistics workflows + 2 layout cases). Focused new 10-case subset passed. Two existing cases were then strengthened and rerun: **2/2 passed**, verifying exact displayed totals/means/medians, active time, both rates and the retained core active-duration assertion; these are not additional distinct tests.
+- [x] Python tooling **13/13 passed**. Debug and release lint each **0 errors / 20 existing warnings**, no new warnings. Final `testDebugUnitTest testReleaseUnitTest lintDebug lintRelease assembleDebug --max-workers=1` succeeded in 2m17s.
+- [x] Actual staged APK **1.4.7/code 14 → 1.4.8/code 15** upgrade passed without uninstall/clear-data on a fresh read-only API 36.1 emulator. Every stored table was identical immediately after upgrade; reopening/saving both basic and detailed sessions changed only normal updated timestamps. Phase IDs/order/timing, quantities, profile/context/stash/ledger and mL preference survived; cold restart and independent production/Dev UIDs/records passed.
+- [x] Version-derived staged APK verified independently with aapt2/apksigner: **1.4.8-dev/code 15**, package **dev.killermelon1458.pumping.debug**, label **Pumping Dev**, min/target/compile **26/36/37**, unchanged standard debug certificate (`67d8d07c36e1f9d040ed59d66be1c6f38d4102f1ae16743cc0f4c18675410be4`). APK: `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`; SHA-256 **`cfa330b306af080403043c1d1f5f6a247ea99a50855b8b2b5d0b07b841969b5a`**. Prior 1.4.7 and public beta APKs remain unchanged.
+- [x] Actual staged-APK Stats inspection passed: two parents (not five phases) give 180 mL total / 90 mL mean and median / 3 mL per active minute, formatted in oz; only one of two is elapsed-eligible. No-context matches show N/A and Reset restores both. Every stored database table was unchanged after viewing/filtering. Retained screenshots were visually inspected; these are emulator observations, not physical acceptance.
+- [ ] Owner physical-device acceptance of Stage 4A remains pending; no new physical acceptance is claimed. Emulator coverage is API 36.1 only; migration/persistence API 26/35 coverage is Robolectric.
+
+Source is prepared for staging/review only. No commit/tag/push/publication or production signing. Stage **4B remains unimplemented and unauthorized**: confirmed lossy legacy-export preview/field-loss reporting and final export integration require a separate task after physical-device acceptance.

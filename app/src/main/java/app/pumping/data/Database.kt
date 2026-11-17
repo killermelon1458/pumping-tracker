@@ -82,6 +82,7 @@ data class BagBalance(@Embedded val bag: Bag, val remaining: Long)
 
 @Dao
 interface PumpDao {
+    @Query("SELECT * FROM session_phases ORDER BY sessionId, position") fun sessionPhases(): Flow<List<SessionPhase>>
     @Query("SELECT DISTINCT sessionId FROM session_phases") fun detailedSessionIds(): Flow<List<String>>
     @Query("SELECT * FROM session_phases ORDER BY sessionId, position") suspend fun allPhases(): List<SessionPhase>
     @Query("SELECT * FROM session_phases WHERE sessionId = :id ORDER BY position") suspend fun phases(id: String): List<SessionPhase>

@@ -28,8 +28,10 @@ object Volume {
         if (text.isBlank()) text else format(parse(text, from), to, 5)
 
     fun format(value: Long, unit: String, decimals: Int = 2): String =
-        BigDecimal(value)
-            .divide(if (unit == "oz") ounce else ml, decimals, RoundingMode.HALF_UP)
+        format(BigDecimal(value), unit, decimals)
+
+    fun format(value: BigDecimal, unit: String, decimals: Int = 2): String =
+        value.divide(if (unit == "oz") ounce else ml, decimals, RoundingMode.HALF_UP)
             .stripTrailingZeros()
             .toPlainString()
 }
