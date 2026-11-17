@@ -1,6 +1,6 @@
 # Building and verifying signed beta releases
 
-The permanent production application ID is `dev.killermelon1458.pumping`. The current published beta is **1.4.0-beta.1 (7)** and remains unchanged. Current source revision **1.4.8**, code **15**, builds as **1.4.8-dev** for debug or **1.4.8-beta** for release; no new beta is authorized by changing this convention. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
+The permanent production application ID is `dev.killermelon1458.pumping`. **1.4.8-beta (15)** promotes the accepted development milestone; historical **1.4.0-beta.1 (7)** remains unchanged. Current source revision **1.4.8**, code **15**, builds as **1.4.8-dev** for debug or **1.4.8-beta** for release; no new beta is authorized by changing this convention. Namespace/Kotlin packages remain `app.pumping`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the revision-counter convention.
 
 From this beta onward, distributed updates must use this permanent ID, the same permanent signing key/certificate and an increased version code. Preserve Room migrations, DataStore state and compatibility with previous native/iOS backups. Never clear or uninstall a real-data installation to make an update work.
 
@@ -106,14 +106,14 @@ adb install test-builds/Pumping-1.4.8-beta.apk
 
 For subsequent public releases, test `adb install -r` over the previously distributed release using the same permanent certificate and a higher version code. Verify quantities, notes, relationships, reminder state and backups remain intact. Keep the first beta APK/certificate metadata for future upgrade tests. No migration from development installations is attempted; imports between variants require an explicit user-selected backup.
 
-## 7. Publish manually, after review
+## 7. Publish only after explicit authorization and verification
 
 1. Complete the release installation/physical-device checks and update the local build information and release notes with actual results, final commit and signing fingerprint.
 2. Verify the final reviewed changes are committed and pushed by you. Rebuild/verify if the source commit changes.
-3. Create tag **`v1.4.8-beta`** at the exact recorded build commit and push it yourself.
+3. Create annotated tag **`v1.4.8-beta`** at the final verified release commit. If release preparation changes documentation only, record the original APK build commit and verify identical application/build inputs; do not claim a rebuild. Push the reviewed main branch and authorized tags.
 4. In <https://github.com/killermelon1458/pumping-tracker/releases/new>, select that tag, set title **Pumping 1.4.8 Beta**, and mark **Prerelease**.
 5. Paste the reviewed local `test-builds/RELEASE_NOTES-1.4.8-beta.md`. Attach only the verified `Pumping-1.4.8-beta.apk` and its checksum (and public verification metadata if desired), then publish yourself.
 
-No task here creates a commit, Git tag, GitHub Release, remote change, upload or deployment workflow. Credentials never belong in release assets.
+These build/verification commands never publish automatically. An owner or explicitly authorized agent may commit, tag, push and publish only after every mandatory gate passes. The 1.4.8 promotion is explicitly authorized; Stage 4B and subsequent development are not. Credentials never belong in release assets.
 
 Android references: [release signing](https://developer.android.com/studio/publish/app-signing), [Gradle signing configuration](https://developer.android.com/build/gradle-tips), [build variants](https://developer.android.com/build/build-variants).

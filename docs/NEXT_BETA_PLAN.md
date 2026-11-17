@@ -1,8 +1,8 @@
 # Pumping — Next Beta Feature Plan
 
-**Status:** Stages 1–3 and the 1.4.7 UX milestone accepted. Stage **4A statistics only** is authorized by the owner; Stage **4B legacy export** remains unauthorized until separate acceptance/approval.
-**Current public baseline:** `1.4.0-beta.1` (`versionCode 7`).
-**Development baseline:** Accepted `1.4.7-dev` / code 14, commit `40c8e04f91484ca513c41ad9fa8ebb8eb65caf04`, tag `v1.4.7-dev`. Current milestone: `1.4.8-dev` / code 15.
+**Status:** Stages 1–3, the 1.4.7 UX milestone and Stage **4A statistics** are owner-accepted. Promotion/publication of **1.4.8-beta/code 15** is explicitly authorized after verification. Stage **4B legacy export** remains deferred and requires separate authorization.
+**Historical public baseline:** `1.4.0-beta.1` (`versionCode 7`); current promotion is `1.4.8-beta` (`versionCode 15`).
+**Accepted application source:** `1.4.8-dev` / code 15, commit `70e373f7027cd97843475554f9b1904a4aa2c306`, annotated tag `v1.4.8-dev`; promoted without code/revision changes.
 **Location in repository:** `docs/NEXT_BETA_PLAN.md`.
 **Related policy:** `docs/VERSIONING.md` and root `AGENTS.md` take precedence for release/version/artifact conventions.
 
@@ -410,6 +410,21 @@ The accepted 1.4.6 APK remains byte-identical (`3439d663f9eb044015a9c5047e7fdddc
 - [x] Actual staged APK **1.4.7/code 14 → 1.4.8/code 15** upgrade passed without uninstall/clear-data on a fresh read-only API 36.1 emulator. Every stored table was identical immediately after upgrade; reopening/saving both basic and detailed sessions changed only normal updated timestamps. Phase IDs/order/timing, quantities, profile/context/stash/ledger and mL preference survived; cold restart and independent production/Dev UIDs/records passed.
 - [x] Version-derived staged APK verified independently with aapt2/apksigner: **1.4.8-dev/code 15**, package **dev.killermelon1458.pumping.debug**, label **Pumping Dev**, min/target/compile **26/36/37**, unchanged standard debug certificate (`67d8d07c36e1f9d040ed59d66be1c6f38d4102f1ae16743cc0f4c18675410be4`). APK: `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`; SHA-256 **`cfa330b306af080403043c1d1f5f6a247ea99a50855b8b2b5d0b07b841969b5a`**. Prior 1.4.7 and public beta APKs remain unchanged.
 - [x] Actual staged-APK Stats inspection passed: two parents (not five phases) give 180 mL total / 90 mL mean and median / 3 mL per active minute, formatted in oz; only one of two is elapsed-eligible. No-context matches show N/A and Reset restores both. Every stored database table was unchanged after viewing/filtering. Retained screenshots were visually inspected; these are emulator observations, not physical acceptance.
-- [ ] Owner physical-device acceptance of Stage 4A remains pending; no new physical acceptance is claimed. Emulator coverage is API 36.1 only; migration/persistence API 26/35 coverage is Robolectric.
+- [x] Owner confirmed physical-device acceptance of 1.4.8-dev and authorized the 1.4.8-beta promotion. Production-phone upgrade testing is not claimed; signed upgrade/fresh-install coverage is disposable API 36.1, with API 26/35 Robolectric migration tests.
 
 Source is prepared for staging/review only. No commit/tag/push/publication or production signing. Stage **4B remains unimplemented and unauthorized**: confirmed lossy legacy-export preview/field-loss reporting and final export integration require a separate task after physical-device acceptance.
+
+
+## 1.4.8-beta promotion and release verification
+
+The owner explicitly authorized committing/tagging the accepted Stage 4A checkpoint and publishing a production-signed prerelease. The exact reviewed 19-file tree was committed as `70e373f7027cd97843475554f9b1904a4aa2c306` and annotated `v1.4.8-dev`. Signing was completed privately by the owner; no key was generated or credentials requested. The APK was built from that clean application commit, version 1.4.8-beta/code 15, production ID `dev.killermelon1458.pumping`, label Pumping, non-debuggable, min/target/compile 26/36/37.
+
+APK SHA-256: `9c9501f72a2abe714a0228d98fd8416e54b68ad2df3ec8499649cbe44ed27027`. The certificate `017ec08d4f6be27763340de84449be449f3dcd3b1082d4c52498935fc3ae77a4` matches the original APK freshly downloaded from GitHub. The release verifier passed identity, SDK, signature, manifest and absence-of-test-fixtures/components checks. No application content was changed or rebuilt for documentation preparation; final release provenance records the documentation-only tag commit and proves identical application/build inputs while retaining the actual APK build commit.
+
+Complete rerun: 310 debug + 310 release unit tests, 78 Compose workflows, 13 tooling tests passed; debug/release lint each 0 errors / 20 existing warnings. On the unrooted production emulator image, signed migration integrity was checked through strict Room-backed startup and complete native v1/v4 exports, not private database extraction. Source versions/migration chain are 3→4→5→6 and API26/35 migration tests pass. Four original native/iOS parents, notes/left-right/IDs/timestamps, three bags, six transactions, three deletion markers, raw compatibility metadata, balances and supported preferences survived the in-place production-signed update from downloaded 1.4.0-beta.1. Repeated native v1 and iOS imports did not duplicate or resurrect records; restart preserved data.
+
+The actual signed APK also passed independent time-wheel/clean-Cancel, immediate 40-minute timing, basic and detailed power routines, explicit breastfeeding, profile/archive associations, linked new inventory, paused timer recovery and all-time parent-session statistics checks. A separate empty signed installation restored and re-exported all v4 record metadata and supported preference values, then survived restart. Restoring preferences intentionally regenerates only the internal acknowledgement token; user-record IDs and values remain unchanged.
+
+Live signed reminder checks passed: app backgrounded/killed with display locked, one notification with actual elapsed text, Snooze without opening the app, actual five-minute redelivery, Dismiss retaining a future alarm and no record/inventory mutation. Runtime notification and exact-alarm access were granted for this disposable-emulator check. Samsung sound/vibration/heads-up, battery restrictions and real-phone upgrades are not claimed from emulator testing.
+
+Stage **4B is intentionally not part of this beta**. Unsupported metadata/timing/inventory still blocks legacy export; native JSON v4 remains the complete-fidelity saved-record option. The earlier combined Stage 4 release checklist does not authorize or require implementing 4B for this owner-authorized partial-stage release. No further development begins after publication.

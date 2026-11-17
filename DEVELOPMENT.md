@@ -2,7 +2,7 @@
 
 The authoritative policy is [docs/VERSIONING.md](docs/VERSIONING.md). Pumping uses **MAJOR.MINOR.REVISION** with a build-channel suffix. The third number is an intentional revision counter, not strict Semantic Versioning.
 
-The published `1.4.0-beta.1` (code 7) remains unchanged. Stages 1–3 added breastfeeding context, pump profiles, power-pump intervals, Room 6 and native backup v4. Accepted UX baseline `1.4.7-dev` (code 14), commit `40c8e04` / tag `v1.4.7-dev`, retains independent date/time wheels, semantic discard and immediate Duration synchronization. Current `1.4.8-dev` (code 15) adds Stage 4A combined statistics filters and comparisons. Legacy-export improvements (Stage 4B) remain deferred. See [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
+The published `1.4.0-beta.1` (code 7) remains unchanged. Stages 1–3 added breastfeeding context, pump profiles, power-pump intervals, Room 6 and native backup v4. Accepted UX baseline `1.4.7-dev` (code 14), commit `40c8e04` / tag `v1.4.7-dev`, retains independent date/time wheels, semantic discard and immediate Duration synchronization. Accepted `1.4.8-dev` (code 15), commit `70e373f` / annotated tag `v1.4.8-dev`, adds Stage 4A combined statistics filters and comparisons and is promoted unchanged to `1.4.8-beta` (code 15). Legacy-export improvements (Stage 4B) remain deferred. See [the implementation/acceptance plan](docs/NEXT_BETA_PLAN.md).
 
 ## Advance and promote
 
@@ -43,11 +43,15 @@ Identical builds may be restaged; a different APK under an existing versioned fi
 adb install -r dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk
 ```
 
-Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.7-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. Preparing this convention does not authorize any release, tag, upload or publication.
+Profile displays the variant's generated `BuildConfig.VERSION_NAME`, e.g. `1.4.8-dev`. Production updates retain their permanent ID/certificate and preserve all user data through tested migrations. See [RELEASE_SIGNING.md](RELEASE_SIGNING.md) for owner-configured external credentials, signing guards, verification and manual publication. The verifier reads the shared revision and stages `Pumping-<revision>-beta.apk` only after verifying a genuine release. A version convention alone does not authorize a release, tag, upload or publication. Each action still requires explicit owner authorization.
 
 
 ## Commit and tag checkpoints
 
 Each completed tested development milestone gets a version-identifying Git commit; each accepted milestone gets an annotated tag (for example `v1.4.2-dev`). Follow the authoritative policy for authorization: preparation/staging does not authorize committing, tagging, pushing or publishing. The first checkpoint includes the complete accumulated 1.4.2-dev state since the published baseline, not separate reconstructed 1.4.1/1.4.2 commits.
 
-Keep generated APKs, verification reports, private records and signing material out of Git. `dev-builds/` is locally retained and ignored, and remains available to Syncthing. Keep previous version directories and never overwrite an existing APK with different bytes. After owner review and authorized commit, record its exact commit ID in the local verification report before an accepted milestone is tagged. Each later milestone requires separate owner approval; Stage 4 is not authorized.
+Keep generated APKs, verification reports, private records and signing material out of Git. `dev-builds/` is locally retained and ignored, and remains available to Syncthing. Keep previous version directories and never overwrite an existing APK with different bytes. After owner review and authorized commit, record its exact commit ID in the local verification report before an accepted milestone is tagged. Stage 4A and the 1.4.8 beta promotion are owner-authorized. Stage 4B and future milestones require separate authorization.
+
+## 1.4.8 beta provenance
+
+The signed 1.4.8-beta application was built from clean accepted commit `70e373f7027cd97843475554f9b1904a4aa2c306`. Release preparation changes documentation only; application, resources, manifests and Gradle/build-tool inputs are identical to that build commit. Preserve the original build receipt rather than claiming the APK was rebuilt at the documentation commit. The annotated beta tag identifies the final reviewed release tree; local release provenance records both commits and the input-equivalence check. No application rebuild or key access is needed for documentation-only changes.

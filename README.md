@@ -2,9 +2,9 @@
 
 Pumping is an independently developed, native Android application for logging breast-milk pumping sessions and tracking stored milk. It uses Kotlin, Jetpack Compose, Room and DataStore.
 
-**Status: beta / pre-release.** This is a source project under active development, not a published production release. Physical-device validation, particularly Samsung One UI notifications and background battery restrictions, remains part of beta preparation.
+**Status: beta / pre-release.** Pumping is under active development. Samsung One UI notification/battery behavior and production-phone upgrades still require device-specific validation; automated emulator tests do not establish those results.
 
-The current public beta is **1.4.0-beta.1** (code **7**). The current development revision is **1.4.8-dev** (code **15**), adding combined statistics filters and pump/breastfeeding-context comparisons while retaining independent date/time wheels, semantic discard detection, immediate Duration synchronization, power-pump editing, and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [development versioning](DEVELOPMENT.md).
+Beta **1.4.8-beta** (code **15**) promotes the accepted **1.4.8-dev** milestone without a revision increment, adding combined statistics filters and pump/breastfeeding-context comparisons while retaining independent date/time wheels, semantic discard detection, immediate Duration synchronization, power-pump editing, and history indicators. It retains Room schema 6, native backup v4, pump profiles, and breastfeeding context. Private builds use `dev.killermelon1458.pumping.debug` (**Pumping Dev**); public builds retain `dev.killermelon1458.pumping` (**Pumping**). Both install side by side with independent app storage/settings/notifications. Kotlin namespace remains `app.pumping`. See [1.4.8 beta release notes](docs/releases/1.4.8-beta.md) and [development versioning](DEVELOPMENT.md).
 
 ## Features
 
@@ -31,7 +31,7 @@ Exported backup files contain sensitive records and are not encrypted. Keep back
 
 In **Profile → Import backup (.pumping or JSON)**, select a backup using Android's system file picker. Import previews records and warnings before confirmation. Merge handles repeated source IDs without duplication; a confirmed replacement requires a safety backup. Select the source time zone for iOS files containing local wall-clock timestamps.
 
-The supported legacy format uses Base64/XOR obfuscation, not encryption. Pumping preserves original IDs, quantities and timestamps within the documented compatibility rules, including retained source precision. Some original fields and event types are retained without being interpreted. Compatible export refuses Android data it cannot safely represent, such as unsupported withdrawals/transfers or multiple newly allocated bags. Native JSON is the preferred complete-record backup.
+The supported legacy format uses Base64/XOR obfuscation, not encryption. Pumping preserves original IDs, quantities and timestamps within the documented compatibility rules, including retained source precision. Some original fields and event types are retained without being interpreted. Compatible export refuses Android data it cannot safely represent, including explicit breastfeeding context, pump profiles, power-pump metadata/phases, unsupported withdrawals/transfers or multiple newly allocated bags. Stage 4B's optional lossy-export workflow is deferred. Native JSON v4 is the complete-fidelity saved-record backup option, with older native v1/v2/v3 imports retained.
 
 Acceptance of exported `.pumping` files by the original iOS application remains unverified. See [compatibility details and limitations](LEGACY_COMPATIBILITY.md). Only clearly synthetic records are included in tests; no original personal backups or reference screenshots are needed to build the app.
 
@@ -52,6 +52,12 @@ From the repository root:
 ```
 
 Gradle automatically verifies and stages `dev-builds/<variant-versionName>/Pumping-<variant-versionName>.apk` (currently `dev-builds/1.4.8-dev/Pumping-1.4.8-dev.apk`), plus its checksum and build metadata. This requires Python 3 (`python3` on PATH) and the configured Android SDK tools. Internal Gradle output names remain unchanged. On Windows, use `gradlew.bat`. See the authoritative [versioning/artifact policy](docs/VERSIONING.md).
+
+## Install or upgrade the beta
+
+Download `Pumping-1.4.8-beta.apk` and its checksum from the [GitHub prerelease](https://github.com/killermelon1458/pumping-tracker/releases/tag/v1.4.8-beta). Export a private JSON safety backup, then install over the production app **without uninstalling or clearing data**. The production ID and permanent certificate match 1.4.0-beta.1; Room migrations 3→4→5→6 preserve existing records. Production-signed upgrade testing used a disposable emulator with synthetic data, not a family phone.
+
+The development app is a separate installation. Native JSON v4 preserves saved records, profiles, phases, context, inventory and deletion history; supported preference restoration does not activate live reminders. Legacy export limitations are described above.
 
 ## Install for development
 

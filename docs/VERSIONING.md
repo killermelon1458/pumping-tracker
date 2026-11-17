@@ -34,6 +34,7 @@ Version| Purpose
 1.4.6-dev| Accepted Stage 3 checkpoint, including immediate Duration synchronization
 1.4.7-dev| Independent date/time controls, native time wheels and semantic discard detection
 1.4.8-dev| Stage 4A filterable statistics and pump comparisons
+1.4.8-beta| Promotion of the accepted 1.4.8 development milestone
 
 The historical "1.4.0-beta.1" release is grandfathered into the convention.
 
@@ -58,6 +59,7 @@ Version| Version code
 1.4.6-dev| 13
 1.4.7-dev| 14
 1.4.8-dev| 15
+1.4.8-beta| 15
 
 Development and beta builds of the same revision may share a version code because their Android application IDs differ.
 
@@ -196,4 +198,4 @@ Development Git milestones
 6. Record the source commit or pre-commit working-tree state and exact APK SHA-256 in the local version directory's verification report. A pre-commit build must not falsely claim its changes belong to the current HEAD. After authorized commit, record the new commit/rebuild verification before tagging an accepted milestone.
 7. Preserve each versioned artifact: identical bytes may be restaged; do not overwrite an existing artifact with different bytes. Resolve a collision explicitly or advance the revision for changed distributable content. Keep historical APKs/reports where practical.
 
-The accepted UX checkpoint is committed/tagged as `v1.4.7-dev` (`40c8e04`). The current `1.4.8-dev` Stage 4A statistics milestone is prepared for review only; its commit/tag and Stage 4B remain subject to separate owner authorization.
+The accepted Stage 4A checkpoint is committed/tagged as `v1.4.8-dev` (`70e373f`). The owner authorized promotion to `1.4.8-beta` / code 15 with the permanent production identity/certificate, local annotated beta tag, push and prerelease publication only after verification. Stage 4B remains deferred. Release-only documentation may be committed separately without rebuilding an unchanged application, provided provenance records the actual APK build commit and verifies every distributable/build input is identical; never relabel an old binary as built at a newer documentation commit.
